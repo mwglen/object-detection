@@ -2,20 +2,17 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-use std::fs;
-
-use text_io::read;
-
-mod images;
-use images::{GreyscaleImage, RGBImage, IntegralImage};
-
+pub mod images;
+use images::IntegralImage;
 mod features;
 use features::Feature;
 
+use std::fs;
+use text_io::read;
+use image::{GrayImage, io::Reader as ImageReader};
+
 fn main() {
 
-    println!("Training using the images found in ./images");
-    println!("This may take some time...");
     let data = find_features();
     let data = serde_json::to_string(&data).unwrap();
     fs::write("features.json", &data).expect("Unable to write to file");
@@ -23,19 +20,67 @@ fn main() {
 }
 
 fn find_features() -> Vec::<Feature> {
-    println!("{} images found", fs::read_dir("images").unwrap().count());
+    
+    // Store the training images into a vector after resizing them
+    // to 24x24 and changing them to greyscale Integral Images
+    let count = fs::read_dir("images").unwrap().count();
+    println!("{} images found in ./images", count);
+    let mut images = Vec::<IntegralImage>::with_capacity(count);
+    for path in fs::read_dir("images").unwrap() {
+        // Open the image
+        let img = ImageReader::open(path.unwrap().path()).unwrap().decode().unwrap();
+        
+        // Turn the image into an Integral Image
+        let img = IntegralImage::new(img);
 
-    let paths = fs::read_dir("images").unwrap();
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display());
+        // Add the image to images
+        images.push(img);
     }
+    println!("Finished gathering images");
+    
+    
+    println!("Getting a list of features");
+    let features = Vec::<TwoRectFeature>::with_capacity(100_000);
+    /*
+    // Calculate two rectangle features
+    for start_y in 0..23 {
+        for start_x in 0..22 {
+            for end_y in (start_y+1)..24 {
+                for end_x in (start_x+2)..24 {
+                    for mid_x in (start_x+1)..(24-end_x) {
+                        // Calculate horizontal features
+                        let area = img.rectangle_sum(start_x, start_y, mid_x, end_y) as isize 
+                            - img.rectangle_sum(mid_x, start_y, end_x, end_y) as isize;
+
+                        // If the area of the rectangle is greater than the threshold
+                        if (isFace==false) features.fale_positive++;
+                        if (isFace==true) features.false_negatives++;
+
+                        // Calculate vertical features
+                        let area = img.rectangle_sum(start_y, start_x, mid_x, end_x) as isize
+                                - img.rectangle_sum(mid_x, start_x, end_y, end_x)
+                        if (isFace==false) features.fale_positive++;
+                        if (isFace==true && area > 0) features.false_negatives++;
+                    }
+                }
+            }
+        }
+    }
+        
+    // Get a vector for three rectangle features
+
+    // Get a vector for four rectangle features
+    */
     unimplemented!();
 }
 
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
+struct TwoRectFeature {
+    start_x: u8,
+    start_y: u8,
+    mid_x: u8,
+    end_x: u8,
+    end_y: u8,
+    false_negatives: u32,
+    false_positives: u32,
+    horizontal: bool,
 }
-*/

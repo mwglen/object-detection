@@ -1,12 +1,14 @@
 extern crate serde;
+use image::io::Reader as ImageReader;
 
 struct Face {
     x: u16,
     y: u16,
     length: u16,
 } impl {
-    pub fn detect(img: &String) -> Vec<Faces> {
-        unimplemented!();
+    pub fn detect(img: &String) -> Result<Vec<Faces>, ImageResult<DynamicImage>> {
+        let img = ImageReader::open(img)?.decode()?.greyscale().resize();
+
     }
 }
 
