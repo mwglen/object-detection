@@ -56,6 +56,6 @@ subcommands:
                 takes_value: true
                 help: Sets the directory containing the data the people to match to
             - input_image:
-                retured: true
+                required: true
                 help: Sets the path to the input image
                 index: 1
