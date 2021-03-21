@@ -8,10 +8,16 @@ mod features;
 use features::Feature;
 
 use std::fs;
-use text_io::read;
+use text_io::{read, scan};
 use image::{GrayImage, io::Reader as ImageReader};
 
+extern crate clap;
+use clap::{load_yaml, App};
+
 fn main() {
+
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from_yaml(yaml).get_matches();
 
     let data = find_features();
     let data = serde_json::to_string(&data).unwrap();

@@ -6,9 +6,8 @@ struct Face {
     y: u16,
     length: u16,
 } impl {
-    pub fn detect(img: &String) -> Result<Vec<Faces>, ImageResult<DynamicImage>> {
-        let img = ImageReader::open(img)?.decode()?.greyscale().resize();
-
+    pub fn detect(img: &String) -> Vec<Faces> {
+        let img = ImageReader::open(img).unwrap().decode().unwrap();
     }
 }
 

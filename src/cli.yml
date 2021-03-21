@@ -1,0 +1,61 @@
+name: Facial Detection and Recognition Application
+version: "1.0"
+author: Matthew G. <mwglen@ncsu.edu>
+about: Does some things 
+args:
+subcommands:
+    - features:
+        about: >
+            Finds the most useful features and thresholds for 
+            use in viola-jones facial detection
+        args:
+            - input: 
+                short: i
+                default_value: ./images
+                help: >
+                    Sets the path to the directory containing the test images.
+                    The images must be square. An equal amount of negative and
+                    positive samples is encouraged.
+            - output:
+                default_value: features.json
+                short: o
+                help: >
+                    Sets the file to output the list of important features and
+                    their respective thresholds
+    - detect: 
+        about: >
+            Finds all the faces in a given image
+        args:
+            - input_image: 
+                required: true
+                help: Sets the path to the input image
+                index: 1
+            - output:
+                short: o
+                takes_value: true
+                help: >
+                    outputs the input image modified with a red rectangle 
+                    around all detected faces
+    - map: 
+        about: >
+            Returns a maps from a face to a point in a euclidean space 
+            where distance represents facial similarity 
+        args:
+            - input_image:
+                required: true
+                help: Sets the path to the input image
+                index: 1
+
+    - recognize:
+        about: >
+            Recognizes an image of a face
+        args:
+            - data:
+                long: data
+                required: true
+                takes_value: true
+                help: Sets the directory containing the data the people to match to
+            - input_image:
+                retured: true
+                help: Sets the path to the input image
+                index: 1
