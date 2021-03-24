@@ -1,3 +1,1 @@
-pub fn main() {
-
-}
+pub fn main(_m: &clap::ArgMatches) {}

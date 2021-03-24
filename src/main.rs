@@ -2,23 +2,21 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-mod features;
-mod recognize;
 mod detect;
+mod features;
 mod map;
+mod recognize;
 
 extern crate clap;
 use clap::{load_yaml, App};
 
-use image::{GrayImage, DynamicImage, ImageBuffer, GenericImageView, Luma};
-use image::imageops::FilterType;
-
-use serde::{Serialize, Deserialize};
-
 fn main() {
     let yaml = load_yaml!("cli.yml");
-    let matches = App::from_yaml(yaml).get_matches();
+    match App::from_yaml(yaml).get_matches().subcommand() {
+        ("features", Some(m)) => features::main(m),
+        ("recognize", Some(m)) => recognize::main(m),
+        ("detect", Some(m)) => detect::main(m),
+        ("map", Some(m)) => map::main(m),
+        _ => (),
+    }
 }
-
-
-

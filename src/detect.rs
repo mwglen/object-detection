@@ -1,10 +1,10 @@
 extern crate serde;
 use image::io::Reader as ImageReader;
 
-pub fn main(img: &String) {
-    let img = ImageReader::open(img).unwrap().decode().unwrap();
+pub fn main(m: &clap::ArgMatches) {
+    let path = m.value_of("input_image").unwrap();
+    let img = ImageReader::open(path).unwrap().decode().unwrap();
 }
-
 
 /*
 lazy_static! {

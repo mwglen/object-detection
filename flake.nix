@@ -3,7 +3,7 @@
     devShell.x86_64-linux = let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in pkgs.mkShell {
-      buildInputs = with pkgs; [cargo];
+      buildInputs = with pkgs; [cargo rustfmt clippy];
     };
   };
 }
