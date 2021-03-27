@@ -3,6 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::time::Instant;
 
+/// The smallest unsigned integer primitive that can index into the Window
+type uint_ws = u8;
+
+/// The relative size of sweeping window used in image detection
+pub const WS: uint_ws = 4;
+pub const WL: uint_ws = WS * 7;
+pub const WH: uint_ws = WS * 8;
+pub const WL_32: u32 = WL as u32;
+pub const WH_32: u32 = WL as u32;
+pub const WL_: usize = WL as usize;
+pub const WH_: usize = WL as usize;
+
+
 pub fn main(m: &clap::ArgMatches) {
     let out_path = m.value_of("output").unwrap();
     let in_path = m.value_of("input").unwrap();
@@ -21,9 +34,15 @@ pub fn main(m: &clap::ArgMatches) {
     let now = Instant::now();
     let features = Feature::get_all();
     println!("Created Vector in {} seconds", now.elapsed().as_secs());
+    println!("Vector has size {}", features.len());
+    use std::mem::size_of;
+    println!("It takes up {} bytes in memory",
+        features.len()*size_of::<FeatureData>());
+    println!("It takes up {} bytes in memory",
+        features.capacity()*size_of::<FeatureData>());
 
     println!("Filtering out the most important features");
-    let features = Feature::filter(&features);
+    let features = Feature::filter(features.as_slice());
 
     // Output the data
     println!("Saving to {}", out_path);
@@ -53,37 +72,170 @@ fn get_integral_images(in_path: &str) -> Vec<IntegralImage> {
     images
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Rectangle {
-    top_left: [usize; 2],
-    bot_right: [usize; 2],
+    top_left: [uint_ws; 2],
+    bot_right: [uint_ws; 2],
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FeatureData {
+    feature: Feature,
+    false_positives: u16,
+    false_negatives: u16,
+}
+
 
 // Two rectangle, three rectangle, and four rectangle features can all be
 // represented using only two rectangles
 #[derive(Serialize, Deserialize, Debug)]
-struct Feature {
-    top_left: [usize; 2],
-    mid_point: [usize; 2],
-    bot_right: [usize; 2],
-    false_positives: usize,
-    false_negatives: usize,
+enum Feature {
+        TwoRect { black: Rectangle, white: Rectangle },
+        ThreeRect { black: Rectangle, white: [Rectangle; 2] },
+        FourRect { black: [Rectangle; 2], white: [Rectangle; 2] },
 }
 impl Feature {
     /// Gets a vector of all possible features
-    pub fn get_all() -> Vec<Feature> {
-        let mut features = Vec::<Feature>::with_capacity(200_000);
+    pub fn get_all() -> Vec<FeatureData> {
+        let mut features = Vec::<FeatureData>::with_capacity(200_000);
         for xtl in 0..WL {
             for xmp in xtl..WL {
                 for xbr in xmp..WL {
                     for ytl in 0..WL {
                         for ymp in ytl..WL {
                             for ybr in ymp..WL {
-                                let f = Feature {
+                                // If the rectangle has no area continue
+                                if (xtl == xbr) || (ytl == ybr) {continue;}
+
+                                // If it is a vertical two rectangle feature
+                                if xtl == xmp {
+                                    // If it is a one rectangle feature skip it
+                                    if (ymp == ytl) || (ymp == xbr) {continue;}
+                                    
+                                    let white = Rectangle {
+                                        top_left: [xtl, ytl],
+                                        bot_right: [xbr, ymp],
+                                    };
+                                    let black = Rectangle {
+                                        top_left: [xtl, ymp],
+                                        bot_right: [xbr, ybr],
+                                    };
+                                    let f = FeatureData {
+                                        feature: Feature::TwoRect { white, black },
+                                        false_positives: 0,
+                                        false_negatives: 0,
+                                    };
+                                    features.push(f);
+                                    continue;
+                                }
+                                
+                                // If it is a horizontal two rectangle feature
+                                if ytl == ymp {
+                                    // If it is a one rectangle feature skip it
+                                    if (xmp == xtl) || (xmp == xbr) {continue;}
+                                    
+                                    let white = Rectangle {
+                                        top_left: [xtl, ytl],
+                                        bot_right: [xmp, ybr],
+                                    };
+                                    let black = Rectangle {
+                                        top_left: [xmp, ytl],
+                                        bot_right: [xbr, ybr],
+                                    };
+                                    let f = FeatureData {
+                                        feature: Feature::TwoRect { white, black },
+                                        false_positives: 0,
+                                        false_negatives: 0,
+                                    };
+                                    features.push(f);
+                                    continue;
+                                }
+
+                                // If it is a mirror image of an already added
+                                // two rectangle feature, continue
+                                if (xbr == xmp) || (ybr == ymp) {continue;}
+
+                                // If it is a four rectangle Feature
+                                let white1 = Rectangle {
+                                    top_left: [xmp, ytl],
+                                    bot_right: [xbr, ymp],
+                                };
+                                let white2 = Rectangle {
+                                    top_left: [xtl, ymp],
+                                    bot_right: [xmp, ybr],
+                                };
+                                let black1 = Rectangle {
                                     top_left: [xtl, ytl],
-                                    mid_point: [xmp, ymp],
+                                    bot_right: [xmp, ymp],
+
+                                };
+                                let black2 = Rectangle {
+                                    top_left: [xmp, ymp],
                                     bot_right: [xbr, ybr],
-                                    false_negatives: 0,
+                                };
+                                let white = [white1, white2];
+                                let black = [black1, black2];
+                                let f = FeatureData {
+                                    feature: Feature::FourRect { white, black },
                                     false_positives: 0,
+                                    false_negatives: 0,
+                                };
+                                features.push(f);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for xtl in 0..(WL-3) {
+            for xm1 in (xtl+1)..(WL-2) {
+                for xm2 in (xm1+1)..(WL-1) {
+                    for xbr in (xm2+1)..WL {
+                        for ytl in 0..(WL-1) {
+                            for ybr in (ytl+1)..WL {
+                                // Horizontal Feature
+                                let white1 = Rectangle {
+                                    top_left: [xtl, ytl],
+                                    bot_right: [xm1, ybr],
+                                };
+                                let white2 = Rectangle {
+                                    top_left: [xm2, ytl],
+                                    bot_right: [xbr, ybr],
+                                };
+                                let black = Rectangle {
+                                    top_left: [xm1, ytl],
+                                    bot_right: [xm2, ybr],
+                                };
+                                let white = [white1, white2];
+                                let f = FeatureData {
+                                    feature: Feature::ThreeRect { white, black },
+                                    false_positives: 0,
+                                    false_negatives: 0,
+                                };
+                                features.push(f);
+
+                                let xtl = ytl; let ytl = xbr; let xbr = ybr;
+                                let ybr = xtl; let ym1 = xm2; let ym2 = xm1;
+
+                                // Vertical Feature
+                                let white1 = Rectangle {
+                                    top_left: [xtl, ytl],
+                                    bot_right: [xbr, ym1],
+                                };
+                                let white2 = Rectangle {
+                                    top_left: [xtl, ym2],
+                                    bot_right: [xbr, ybr],
+                                };
+                                let black = Rectangle {
+                                    top_left: [xtl, ym1],
+                                    bot_right: [xbr, ym2],
+                                };
+                                let white = [white1, white2];
+                                let f = FeatureData {
+                                    feature: Feature::ThreeRect { white, black },
+                                    false_positives: 0,
+                                    false_negatives: 0,
                                 };
                                 features.push(f);
                             }
@@ -95,67 +247,26 @@ impl Feature {
         features
     }
 
-    pub fn filter(_features: &[Feature]) -> Vec<Feature> {
+    pub fn filter(_features: &[FeatureData]) -> Vec<Feature> {
         unimplemented!();
     }
 
     /// Evaluates whether or not a feature is in an integral image
     pub fn evaluate(&self, ii: IntegralImage) -> isize {
-        let mut sum: isize = 0;
-        for rect in &self.get_white_rects() {
-            sum += ii.rect_sum(rect);
+        match self {
+            Feature::TwoRect{black, white} => {
+                ii.rect_sum(&black) - ii.rect_sum(&white)
+            }
+            Feature::ThreeRect{black, white} => {
+                ii.rect_sum(&black) - ii.rect_sum(&white[0]) - ii.rect_sum(&white[1])
+            }
+            Feature::FourRect{black, white} => {
+                ii.rect_sum(&black[0]) + ii.rect_sum(&black[1])
+                    - ii.rect_sum(&white[0]) - ii.rect_sum(&white[1])
+            }
         }
-        for rect in &self.get_black_rects() {
-            sum -= ii.rect_sum(rect);
-        }
-        sum
-    }
-
-    /// Gets an array of all of the white rectangles associated with the feature
-    fn get_white_rects(&self) -> [Rectangle; 2] {
-        let tl = self.top_left;
-        let br = self.bot_right;
-        let mp = self.mid_point;
-
-        // The rectangle in the top right of the feature
-        let rect1 = Rectangle {
-            top_left: [mp[0], tl[1]],
-            bot_right: [br[0], mp[1]],
-        };
-
-        // The rectangle in the bottom left of the feature
-        let rect2 = Rectangle {
-            top_left: [tl[0], mp[1]],
-            bot_right: [mp[0], br[1]],
-        };
-        [rect1, rect2]
-    }
-
-    /// Gets an array of all of the black rectangles associated with the feature
-    fn get_black_rects(&self) -> [Rectangle; 2] {
-        let tl = self.top_left;
-        let br = self.bot_right;
-        let mp = self.mid_point;
-
-        // The rectangle in the top left of the feature
-        let rect1 = Rectangle {
-            top_left: tl,
-            bot_right: mp,
-        };
-
-        // The rectangle in the bottom right of the feature
-        let rect2 = Rectangle {
-            top_left: mp,
-            bot_right: br,
-        };
-        [rect1, rect2]
     }
 }
-
-/// The relative size of sweeping window used in image detection
-pub const WS: usize = 4;
-pub const WL: usize = WS * 7;
-pub const WH: usize = WS * 8;
 
 pub struct IntegralImage {
     pixels: Vec<usize>,
@@ -163,27 +274,22 @@ pub struct IntegralImage {
 impl IntegralImage {
     pub fn new(img: DynamicImage) -> IntegralImage {
         // Resize the image and turn it to grayscale
-        let img = img
-            .resize(WL as u32, WH as u32, FilterType::Triangle)
-            .into_luma8();
+        let img = img.resize(WL_32, WH_32, FilterType::Triangle).into_luma8();
 
         // Calculate each pixel of the integral image
-        let mut pixels = Vec::<usize>::with_capacity(WL * WH);
-        for y in 0..WH {
-            for x in 0..WL {
-                let pixel = img.get_pixel(x as u32, y as u32)[0] as usize;
+        let mut pixels = Vec::<usize>::with_capacity(WL_ * WH_);
+        for y in 0..WH_ {
+            for x in 0..WL_ {
+                let pixel = usize::from(img.get_pixel(x as u32, y as u32)[0]);
                 pixels.push({
-                    if (x == 0) && (y == 0) {
-                        pixel
-                    } else if x == 0 {
-                        pixels[x + WL * (y - 1)] as usize + pixel
-                    } else if y == 0 {
-                        pixels[(x - 1) + WL * y] as usize + pixel
-                    } else {
-                        pixels[((x - 1) + WL * y)] as usize
-                            + (pixels[x + WL * (y - 1)] as usize)
+                    if (x == 0) && (y == 0) {pixel} 
+                    else if x == 0 {usize::from(pixels[WL_*(y-1)]) + pixel}
+                    else if y == 0 {usize::from(pixels[x-1]) + pixel}
+                    else {
+                        usize::from(pixels[((x-1) + WL_*y)])
+                            + usize::from(pixels[x + WL_*(y-1)])
+                            - usize::from(pixels[(x-1) + WL_*(y-1)])
                             + pixel
-                            - (pixels[(x - 1) + WL * (y - 1)] as usize)
                     }
                 })
             }
@@ -191,11 +297,14 @@ impl IntegralImage {
         IntegralImage { pixels }
     }
     pub fn rect_sum(&self, r: &Rectangle) -> isize {
-        let tl = r.top_left;
-        let br = r.bot_right;
-        (self.pixels[br[0] + WL * br[1]]
-            - self.pixels[br[0] + WL * tl[1]]
-            - self.pixels[tl[0] + WL * br[1]]
-            + self.pixels[tl[0] + WL * tl[1]]) as isize
+        let xtl = usize::from(r.top_left[0]);
+        let ytl = usize::from(r.top_left[1]);
+        let xbr = usize::from(r.bot_right[0]);
+        let ybr = usize::from(r.bot_right[1]);
+        
+        (self.pixels[xbr + WL_*ybr]
+            - self.pixels[xbr + WL_*ytl]
+            - self.pixels[xtl + WL_*ybr]
+            + self.pixels[xtl + WL_*ytl]) as isize
     }
 }
