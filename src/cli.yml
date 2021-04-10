@@ -14,13 +14,14 @@ subcommands:
                 default_value: ./images/faces
                 help: >
                     Sets the path to the directory containing the test images.
-                    The images must have an aspect ratio of ___
+                    The images must have an aspect ratio of \8:\7
             - bg_dir:
                 short: b
                 default_value: ./images/bg
                 help: >
                     Sets the path to the directory containing the background images
-                    (images not of faces). The images must have an aspect ratio of ____
+                    (images not of faces). The images must have an aspect ratio 
+                    of \8:\7
             - output:
                 default_value: cascade.json
                 short: o
