@@ -85,6 +85,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "console"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3993e6445baa160675931ec041a5e03ca84b9c6e32a056150d3aa2bdda0a1f45"
+dependencies = [
+ "encode_unicode",
+ "lazy_static",
+ "libc",
+ "regex",
+ "terminal_size",
+ "unicode-width",
+ "winapi",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -155,11 +170,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
 name = "face-recognition"
 version = "0.1.0"
 dependencies = [
  "clap",
  "image",
+ "indicatif",
  "serde",
  "serde_json",
  "text_io",
@@ -201,6 +223,18 @@ dependencies = [
  "png",
  "scoped_threadpool",
  "tiff",
+]
+
+[[package]]
+name = "indicatif"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7baab56125e25686df467fe470785512329883aab42696d661247aca2a2896e4"
+dependencies = [
+ "console",
+ "lazy_static",
+ "number_prefix",
+ "regex",
 ]
 
 [[package]]
@@ -310,6 +344,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "number_prefix"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
+
+[[package]]
 name = "png"
 version = "0.16.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -363,6 +403,21 @@ dependencies = [
  "lazy_static",
  "num_cpus",
 ]
+
+[[package]]
+name = "regex"
+version = "1.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "957056ecddbeba1b26965114e191d2e8589ce74db242b6ea25fc4062427a5c19"
+dependencies = [
+ "regex-syntax",
+]
+
+[[package]]
+name = "regex-syntax"
+version = "0.6.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24d5f089152e60f62d28b835fbff2cd2e8dc0baf1ac13343bef92ab7eed84548"
 
 [[package]]
 name = "ryu"
@@ -428,6 +483,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86ca8ced750734db02076f44132d802af0b33b09942331f4459dde8636fd2406"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]

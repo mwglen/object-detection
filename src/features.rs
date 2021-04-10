@@ -2,102 +2,100 @@ use image::{imageops::FilterType, io::Reader as ImageReader, DynamicImage};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::time::Instant;
+use indicatif::ProgressBar;
 
 /// The smallest unsigned integer primitive that can index into the Window
-type uint_ws = u8;
+type WindowSize = u8;
 
 /// The relative size of sweeping window used in image detection
-pub const WS: uint_ws = 4;
-pub const WL: uint_ws = WS * 7;
-pub const WH: uint_ws = WS * 8;
+pub const WS: WindowSize = 2;
+pub const WL: WindowSize = WS * 7;
+pub const WH: WindowSize = WS * 8;
 pub const WL_32: u32 = WL as u32;
-pub const WH_32: u32 = WL as u32;
+pub const WH_32: u32 = WH as u32;
 pub const WL_: usize = WL as usize;
-pub const WH_: usize = WL as usize;
-
+pub const WH_: usize = WH as usize;
 
 pub fn main(m: &clap::ArgMatches) {
     let out_path = m.value_of("output").unwrap();
-    let in_path = m.value_of("input").unwrap();
+    let faces_dir = m.value_of("faces_dir").unwrap();
+    // let bg_dir = m.value_of("bg_dir").unwrap();
+    let bg_dir = faces_dir;
 
     println!("Gathering images");
     let now = Instant::now();
-    let images = get_integral_images(in_path);
+    let mut images = TrainingImages::from_dir(faces_dir, bg_dir);
     println!(
         "{} images found in {} taking {} seconds",
-        images.len(),
-        in_path,
+        images[0].len() + images[1].len(),
+        faces_dir,
         now.elapsed().as_secs()
     );
 
     println!("Creating a vector of all possible features");
     let now = Instant::now();
-    let features = Feature::get_all();
+    let wcs = WeakClassifier::get_all();
     println!("Created Vector in {} seconds", now.elapsed().as_secs());
-    println!("Vector has size {}", features.len());
+    println!("Vector has size {}", wcs.len());
     use std::mem::size_of;
     println!("It takes up {} bytes in memory",
-        features.len()*size_of::<FeatureData>());
+        wcs.len()*size_of::<WeakClassifier>());
     println!("It takes up {} bytes in memory",
-        features.capacity()*size_of::<FeatureData>());
+        wcs.capacity()*size_of::<WeakClassifier>());
 
-    println!("Filtering out the most important features");
-    let features = Feature::filter(features.as_slice());
+    // println!("Calculating thresholds of weak classifiers");
+    // let now = Instant::now();
+    // for wc in &wcs {
+    //     wc.calculate_threshold(&images);
+    // }
+    // println!("Calculated thresholds in {} seconds", now.elapsed().as_secs());
+
+    println!("Building the cascade of weak classifiers");
+    let now = Instant::now();
+    let wcs = WeakClassifier::build_cascade(&wcs, &mut images, 5);
+    println!("Built the cascade in {} seconds", now.elapsed().as_secs());
 
     // Output the data
     println!("Saving to {}", out_path);
-    let data = serde_json::to_string(&features).unwrap();
+    let data = serde_json::to_string_pretty(&wcs).unwrap();
     fs::write(out_path, &data).expect("Unable to write to file");
 
     println!("Finished");
-    unimplemented!();
 }
 
-fn get_integral_images(in_path: &str) -> Vec<IntegralImage> {
-    let count = fs::read_dir(in_path).unwrap().count();
-    let mut images = Vec::<IntegralImage>::with_capacity(count);
-    for path in fs::read_dir("images").unwrap() {
-        // Open the image
-        let img = ImageReader::open(path.unwrap().path())
-            .unwrap()
-            .decode()
-            .unwrap();
 
-        // Convert image to Integral Image
-        let img = IntegralImage::new(img);
-
-        // Add the image to images
-        images.push(img);
-    }
-    images
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Rectangle {
-    top_left: [uint_ws; 2],
-    bot_right: [uint_ws; 2],
+    top_left: [WindowSize; 2],
+    bot_right: [WindowSize; 2],
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-struct FeatureData {
-    feature: Feature,
-    false_positives: u16,
-    false_negatives: u16,
-}
-
 
 // Two rectangle, three rectangle, and four rectangle features can all be
 // represented using only two rectangles
-#[derive(Serialize, Deserialize, Debug)]
-enum Feature {
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub enum Feature {
         TwoRect { black: Rectangle, white: Rectangle },
         ThreeRect { black: Rectangle, white: [Rectangle; 2] },
         FourRect { black: [Rectangle; 2], white: [Rectangle; 2] },
 }
-impl Feature {
-    /// Gets a vector of all possible features
-    pub fn get_all() -> Vec<FeatureData> {
-        let mut features = Vec::<FeatureData>::with_capacity(200_000);
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct WeakClassifier {
+    feature: Feature,
+    threshold: i64,
+}
+impl WeakClassifier {
+    fn calculate_threshold(&self, set: &[TrainingImages; 2]) {
+        for i in 0..set[0].len() {
+            
+        }
+        for i in 0..set[1].len() {
+
+        }
+        unimplemented!();
+    }
+    pub fn get_all() -> Vec<WeakClassifier> {
+        let mut wcs = Vec::<WeakClassifier>::with_capacity(200_000);
         for xtl in 0..WL {
             for xmp in xtl..WL {
                 for xbr in xmp..WL {
@@ -120,12 +118,10 @@ impl Feature {
                                         top_left: [xtl, ymp],
                                         bot_right: [xbr, ybr],
                                     };
-                                    let f = FeatureData {
+                                    wcs.push(WeakClassifier {
                                         feature: Feature::TwoRect { white, black },
-                                        false_positives: 0,
-                                        false_negatives: 0,
-                                    };
-                                    features.push(f);
+                                        threshold: 0,
+                                    });
                                     continue;
                                 }
                                 
@@ -142,12 +138,10 @@ impl Feature {
                                         top_left: [xmp, ytl],
                                         bot_right: [xbr, ybr],
                                     };
-                                    let f = FeatureData {
+                                    wcs.push(WeakClassifier {
                                         feature: Feature::TwoRect { white, black },
-                                        false_positives: 0,
-                                        false_negatives: 0,
-                                    };
-                                    features.push(f);
+                                        threshold: 0,
+                                    });
                                     continue;
                                 }
 
@@ -175,12 +169,10 @@ impl Feature {
                                 };
                                 let white = [white1, white2];
                                 let black = [black1, black2];
-                                let f = FeatureData {
+                                wcs.push(WeakClassifier {
                                     feature: Feature::FourRect { white, black },
-                                    false_positives: 0,
-                                    false_negatives: 0,
-                                };
-                                features.push(f);
+                                    threshold: 0,
+                                });
                             }
                         }
                     }
@@ -208,12 +200,10 @@ impl Feature {
                                     bot_right: [xm2, ybr],
                                 };
                                 let white = [white1, white2];
-                                let f = FeatureData {
+                                wcs.push(WeakClassifier {
                                     feature: Feature::ThreeRect { white, black },
-                                    false_positives: 0,
-                                    false_negatives: 0,
-                                };
-                                features.push(f);
+                                    threshold: 0,
+                                });
 
                                 let xtl = ytl; let ytl = xbr; let xbr = ybr;
                                 let ybr = xtl; let ym1 = xm2; let ym2 = xm1;
@@ -232,28 +222,72 @@ impl Feature {
                                     bot_right: [xbr, ym2],
                                 };
                                 let white = [white1, white2];
-                                let f = FeatureData {
+                                wcs.push(WeakClassifier {
                                     feature: Feature::ThreeRect { white, black },
-                                    false_positives: 0,
-                                    false_negatives: 0,
-                                };
-                                features.push(f);
+                                    threshold: 0,
+                                });
                             }
                         }
                     }
                 }
             }
         }
-        features
+        wcs
     }
 
-    pub fn filter(_features: &[FeatureData]) -> Vec<Feature> {
-        unimplemented!();
-    }
+    pub fn build_cascade(
+        wcs: &Vec<WeakClassifier>, 
+        set: &mut [TrainingImages; 2],
+        cascade_size: usize
+    ) -> Vec<WeakClassifier> {
+        (0..cascade_size).map(|i| {
+            println!("#########################");
+            println!("Finding Classifier {} of {}", i + 1, cascade_size);
+            println!("#########################");
+            // Normalize the weights of the training images
+            println!("Normalizing Image Weights");
+            TrainingImages::normalize_weights(set);
 
-    /// Evaluates whether or not a feature is in an integral image
-    pub fn evaluate(&self, ii: IntegralImage) -> isize {
-        match self {
+            // Calculate the error for each weak classifier
+            println!("Calculating Errors for Weak Classifiers");
+            let bar = ProgressBar::new(wcs.len() as u64);
+            let errors: Vec<_> = wcs.iter().map(|wc| {
+                let v1: f64 = set[0].iter().filter(|(image, _)| {
+                    !wc.evaluate(image)
+                }).map(|(_, w)| *w).sum();
+
+                let v2: f64 = set[1].iter().filter(|(image, _)| {
+                    wc.evaluate(image)
+                }).map(|(_, w)| *w).sum();
+                bar.inc(1);
+
+                v1 + v2
+            }).collect();
+            bar.finish();
+            
+            // Find the index of the classifier with the smallest error value
+            println!("Finding Classifier with the Smallest Error");
+            let (index, err) = errors.iter().enumerate().min_by(|v1, v2| {
+                v1.1.partial_cmp(v2.1).unwrap()
+            }).expect("Errors was empty!?");
+
+            // Update the weights:
+            // If the chosen classifier incorrectly classified the image
+            // add more weight, else decrease weight
+            println!("Updating the Image Weights");
+            let beta_t = err / (1.0 - err);
+            set[0].iter_mut().filter(|(image, _)| {
+                wcs[index].evaluate(image)
+            }).for_each(|(image, weight)| {
+                *weight *= beta_t;
+            });
+
+            wcs[index]
+        }).collect()
+    }
+    
+    pub fn evaluate(&self, ii: &IntegralImage) -> bool {
+        let sum = match self.feature {
             Feature::TwoRect{black, white} => {
                 ii.rect_sum(&black) - ii.rect_sum(&white)
             }
@@ -261,50 +295,102 @@ impl Feature {
                 ii.rect_sum(&black) - ii.rect_sum(&white[0]) - ii.rect_sum(&white[1])
             }
             Feature::FourRect{black, white} => {
-                ii.rect_sum(&black[0]) + ii.rect_sum(&black[1])
-                    - ii.rect_sum(&white[0]) - ii.rect_sum(&white[1])
+                black.iter().map(|rect| ii.rect_sum(rect)).sum::<i64>()
+                    - white.iter().map(|rect| ii.rect_sum(rect)).sum::<i64>()
             }
-        }
+        };
+        sum >= self.threshold
     }
 }
 
 pub struct IntegralImage {
-    pixels: Vec<usize>,
-}
+    pixels: Vec<u64>,
+} 
 impl IntegralImage {
     pub fn new(img: DynamicImage) -> IntegralImage {
         // Resize the image and turn it to grayscale
         let img = img.resize(WL_32, WH_32, FilterType::Triangle).into_luma8();
 
         // Calculate each pixel of the integral image
-        let mut pixels = Vec::<usize>::with_capacity(WL_ * WH_);
+        let mut pixels = Vec::<u64>::with_capacity(WL_ * WH_);
         for y in 0..WH_ {
             for x in 0..WL_ {
-                let pixel = usize::from(img.get_pixel(x as u32, y as u32)[0]);
-                pixels.push({
-                    if (x == 0) && (y == 0) {pixel} 
-                    else if x == 0 {usize::from(pixels[WL_*(y-1)]) + pixel}
-                    else if y == 0 {usize::from(pixels[x-1]) + pixel}
-                    else {
-                        usize::from(pixels[((x-1) + WL_*y)])
-                            + usize::from(pixels[x + WL_*(y-1)])
-                            - usize::from(pixels[(x-1) + WL_*(y-1)])
-                            + pixel
-                    }
-                })
+                let mut pixel = u64::from(img.get_pixel(x as u32, y as u32)[0]);
+                if y != 0 { pixel += pixels[x + WL_*(y-1)]; }
+                if x != 0 { pixel += pixels[(x-1) + WL_*y]; }
+                if x != 0 && y != 0 {
+                    pixel -= pixels[(x-1) + WL_*(y-1)];
+                }
+                pixels.push(pixel);
             }
         }
         IntegralImage { pixels }
     }
-    pub fn rect_sum(&self, r: &Rectangle) -> isize {
+    pub fn rect_sum(&self, r: &Rectangle) -> i64 {
         let xtl = usize::from(r.top_left[0]);
         let ytl = usize::from(r.top_left[1]);
         let xbr = usize::from(r.bot_right[0]);
         let ybr = usize::from(r.bot_right[1]);
         
-        (self.pixels[xbr + WL_*ybr]
-            - self.pixels[xbr + WL_*ytl]
-            - self.pixels[xtl + WL_*ybr]
-            + self.pixels[xtl + WL_*ytl]) as isize
+        self.pixels[xbr + WL_*ybr] as i64
+            - self.pixels[xbr + WL_*ytl] as i64
+            - self.pixels[xtl + WL_*ybr] as i64
+            + self.pixels[xtl + WL_*ytl] as i64
+    }
+}
+
+/// A struct-of-arrays representing all of the training images 
+pub struct TrainingImages {
+    images: Vec<IntegralImage>,
+    weights: Vec<f64>,
+}
+impl TrainingImages {
+    pub fn iter(&self) -> impl Iterator<Item = (&IntegralImage, &f64)> {
+        self.images.iter().zip(self.weights.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&IntegralImage, &mut f64)> {
+        self.images.iter().zip(self.weights.iter_mut())
+    }
+
+    pub fn from_dir(faces_path: &str, not_faces_path: &str) 
+        -> [TrainingImages; 2] {
+        let faces = TrainingImages::new(faces_path);
+        let not_faces = TrainingImages::new(not_faces_path);
+        [faces, not_faces]
+    }
+
+    pub fn len(&self) -> usize {
+        self.images.len()
+    }
+    
+    pub fn normalize_weights(set: &mut [TrainingImages; 2]) {
+        // Sum over the weights of all the images
+        let sum = set[0].weights.iter().sum::<f64>()
+            + set[1].weights.iter().sum::<f64>();
+        
+        // Divide each image's original weight by the sum
+        for weight in &mut set[0].weights {
+            *weight /= sum;
+        }
+        for weight in &mut set[1].weights {
+            *weight /= sum;
+        }
+    }
+
+    fn new(path: &str) -> TrainingImages {
+        let images: Vec<_> = fs::read_dir(path).unwrap().map(|img| {
+            // Open the image
+            let img = ImageReader::open(img.unwrap().path())
+                .unwrap()
+                .decode()
+                .unwrap();
+    
+            // Convert image to Integral Image
+            IntegralImage::new(img)
+        }).collect();
+
+        let weights = vec![1.0/(2.0 * images.len() as f64); images.len()];
+        TrainingImages { images, weights }
     }
 }

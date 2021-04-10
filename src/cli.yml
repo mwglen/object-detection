@@ -9,19 +9,24 @@ subcommands:
             Finds the most useful features and thresholds for 
             use in viola-jones facial detection
         args:
-            - input: 
-                short: i
-                default_value: ./images
+            - faces_dir: 
+                short: f
+                default_value: ./images/faces
                 help: >
                     Sets the path to the directory containing the test images.
-                    The images must be square. An equal amount of negative and
-                    positive samples is encouraged.
+                    The images must have an aspect ratio of ___
+            - bg_dir:
+                short: b
+                default_value: ./images/bg
+                help: >
+                    Sets the path to the directory containing the background images
+                    (images not of faces). The images must have an aspect ratio of ____
             - output:
-                default_value: features.json
+                default_value: cascade.json
                 short: o
                 help: >
-                    Sets the file to output the list of important features and
-                    their respective thresholds
+                    Sets the file to output the cascade of weak classifiers.
+                    Each weak classifier has a threshold and a corresponding feature.
     - detect: 
         about: >
             Finds all the faces in a given image

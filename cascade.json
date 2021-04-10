@@ -1,0 +1,137 @@
+[
+  {
+    "feature": {
+      "TwoRect": {
+        "black": {
+          "top_left": [
+            0,
+            2
+          ],
+          "bot_right": [
+            1,
+            2
+          ]
+        },
+        "white": {
+          "top_left": [
+            0,
+            0
+          ],
+          "bot_right": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "threshold": 0
+  },
+  {
+    "feature": {
+      "TwoRect": {
+        "black": {
+          "top_left": [
+            0,
+            7
+          ],
+          "bot_right": [
+            1,
+            13
+          ]
+        },
+        "white": {
+          "top_left": [
+            0,
+            0
+          ],
+          "bot_right": [
+            1,
+            7
+          ]
+        }
+      }
+    },
+    "threshold": 0
+  },
+  {
+    "feature": {
+      "TwoRect": {
+        "black": {
+          "top_left": [
+            0,
+            2
+          ],
+          "bot_right": [
+            1,
+            9
+          ]
+        },
+        "white": {
+          "top_left": [
+            0,
+            0
+          ],
+          "bot_right": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "threshold": 0
+  },
+  {
+    "feature": {
+      "TwoRect": {
+        "black": {
+          "top_left": [
+            0,
+            8
+          ],
+          "bot_right": [
+            1,
+            12
+          ]
+        },
+        "white": {
+          "top_left": [
+            0,
+            0
+          ],
+          "bot_right": [
+            1,
+            8
+          ]
+        }
+      }
+    },
+    "threshold": 0
+  },
+  {
+    "feature": {
+      "TwoRect": {
+        "black": {
+          "top_left": [
+            0,
+            7
+          ],
+          "bot_right": [
+            1,
+            12
+          ]
+        },
+        "white": {
+          "top_left": [
+            0,
+            0
+          ],
+          "bot_right": [
+            1,
+            7
+          ]
+        }
+      }
+    },
+    "threshold": 0
+  }
+]
