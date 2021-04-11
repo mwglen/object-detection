@@ -4,24 +4,15 @@ author: Matthew G. <mwglen@ncsu.edu>
 about: Does some things 
 args:
 subcommands:
+    - process_images:
+        about: >
+            Processes images used in training the facial detection and recognition
+            systems
     - cascade:
         about: >
             Finds the most useful features and thresholds for 
             use in viola-jones facial detection
         args:
-            - faces_dir: 
-                short: f
-                default_value: ./images/faces
-                help: >
-                    Sets the path to the directory containing the test images.
-                    The images must have an aspect ratio of \8:\7
-            - bg_dir:
-                short: b
-                default_value: ./images/bg
-                help: >
-                    Sets the path to the directory containing the background images
-                    (images not of faces). The images must have an aspect ratio 
-                    of \8:\7
             - output:
                 default_value: cascade.json
                 short: o

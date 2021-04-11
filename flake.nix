@@ -12,11 +12,8 @@
         cargo rustfmt clippy 
 
         # Python Dependencies
-        python38 pipenv setuptools stdenv.cc.cc.lib
+        python38 scrapy
       ];
-      shellHook = ''
-		export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.cudatoolkit_11_2}/lib:${pkgs.cudnn_cudatoolkit_11_2}/lib:$LD_LIBRARY_PATH
-      '';
     };
   };
 }

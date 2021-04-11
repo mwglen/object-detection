@@ -1,7 +1,0 @@
-name: face_recognition
-dependencies:
-    - python=3.7
-    - numpy
-    - matplotlib
-    - tensorflow
-
