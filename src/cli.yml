@@ -4,7 +4,7 @@ author: Matthew G. <mwglen@ncsu.edu>
 about: Does some things 
 args:
 subcommands:
-    - features:
+    - cascade:
         about: >
             Finds the most useful features and thresholds for 
             use in viola-jones facial detection

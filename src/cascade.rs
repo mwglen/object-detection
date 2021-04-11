@@ -24,17 +24,17 @@ pub fn main(m: &clap::ArgMatches) {
 
     println!("Gathering images");
     let now = Instant::now();
-    let mut images = TrainingImages::from_dir(faces_dir, bg_dir);
+    let mut images = TrainingImages::from_dirs(faces_dir, bg_dir);
     println!(
         "{} images found in {} taking {} seconds",
-        images[0].len() + images[1].len(),
+        images.len(),
         faces_dir,
         now.elapsed().as_secs()
     );
 
-    println!("Creating a vector of all possible features");
+    println!("Creating a vector of all weak classifiers");
     let now = Instant::now();
-    let wcs = WeakClassifier::get_all();
+    let mut wcs = WeakClassifier::get_all();
     println!("Created Vector in {} seconds", now.elapsed().as_secs());
     println!("Vector has size {}", wcs.len());
     use std::mem::size_of;
@@ -43,12 +43,15 @@ pub fn main(m: &clap::ArgMatches) {
     println!("It takes up {} bytes in memory",
         wcs.capacity()*size_of::<WeakClassifier>());
 
-    // println!("Calculating thresholds of weak classifiers");
-    // let now = Instant::now();
-    // for wc in &wcs {
-    //     wc.calculate_threshold(&images);
-    // }
-    // println!("Calculated thresholds in {} seconds", now.elapsed().as_secs());
+    println!("Calculating thresholds of weak classifiers");
+    let now = Instant::now();
+    let bar = ProgressBar::new(wcs.len() as u64);
+    for wc in &mut wcs {
+        wc.calculate_threshold(&mut images);
+        bar.inc(1);
+    }
+    bar.finish();
+    println!("Calculated thresholds in {} seconds", now.elapsed().as_secs());
 
     println!("Building the cascade of weak classifiers");
     let now = Instant::now();
@@ -85,14 +88,30 @@ pub struct WeakClassifier {
     threshold: i64,
 }
 impl WeakClassifier {
-    fn calculate_threshold(&self, set: &[TrainingImages; 2]) {
-        for i in 0..set[0].len() {
-            
-        }
-        for i in 0..set[1].len() {
+    fn calculate_threshold(&mut self, set: &mut TrainingImages) {
+        // Sort the training images based on it's evaluation
+        set.sort(self);
 
-        }
-        unimplemented!();
+        // Sum of the weights of the face samples
+        let afs: f64 = set.iter()
+            .filter(|(_, _, &is_face)| is_face)
+            .map(|(_, weight, _)| weight).sum();
+
+        // Sum of the weights of the face samples
+        let abg: f64 = set.iter()
+            .filter(|(_, _, &is_face)| !is_face)
+            .map(|(_, weight, _)| weight).sum();
+
+        let mut fs: f64 = 0.0; // Sum of the weights of the face samples so far
+        let mut bg: f64 = 0.0; // Sum of the weights of background samples so far
+
+        let errors: Vec<_> = set.iter().map(|(_, weight, is_face)| {
+            // Add the weight to fs/bg
+            if *is_face {fs += *weight} else {bg += *weight};
+            
+            // Comput the error function
+            f64::min(bg+(afs-fs), fs+(abg-bg))
+        }).collect();
     }
     pub fn get_all() -> Vec<WeakClassifier> {
         let mut wcs = Vec::<WeakClassifier>::with_capacity(200_000);
@@ -237,13 +256,14 @@ impl WeakClassifier {
 
     pub fn build_cascade(
         wcs: &Vec<WeakClassifier>, 
-        set: &mut [TrainingImages; 2],
+        set: &mut TrainingImages,
         cascade_size: usize
     ) -> Vec<WeakClassifier> {
         (0..cascade_size).map(|i| {
             println!("#########################");
             println!("Finding Classifier {} of {}", i + 1, cascade_size);
             println!("#########################");
+
             // Normalize the weights of the training images
             println!("Normalizing Image Weights");
             TrainingImages::normalize_weights(set);
@@ -252,22 +272,19 @@ impl WeakClassifier {
             println!("Calculating Errors for Weak Classifiers");
             let bar = ProgressBar::new(wcs.len() as u64);
             let errors: Vec<_> = wcs.iter().map(|wc| {
-                let v1: f64 = set[0].iter().filter(|(image, _)| {
-                    !wc.evaluate(image)
-                }).map(|(_, w)| *w).sum();
-
-                let v2: f64 = set[1].iter().filter(|(image, _)| {
-                    wc.evaluate(image)
-                }).map(|(_, w)| *w).sum();
                 bar.inc(1);
-
-                v1 + v2
+                set.iter().filter(|(image, _, &is_face)| {
+                    is_face ^ !wc.evaluate(image)
+                }).map(|(_, w, _)| *w).sum::<f64>()
             }).collect();
             bar.finish();
             
             // Find the index of the classifier with the smallest error value
             println!("Finding Classifier with the Smallest Error");
-            let (index, err) = errors.iter().enumerate().min_by(|v1, v2| {
+            let (index, err) = errors
+                .iter()
+                .enumerate()
+                .min_by(|v1, v2| {
                 v1.1.partial_cmp(v2.1).unwrap()
             }).expect("Errors was empty!?");
 
@@ -276,12 +293,13 @@ impl WeakClassifier {
             // add more weight, else decrease weight
             println!("Updating the Image Weights");
             let beta_t = err / (1.0 - err);
-            set[0].iter_mut().filter(|(image, _)| {
-                wcs[index].evaluate(image)
-            }).for_each(|(image, weight)| {
+
+            set.iter_mut().filter(|(image, _, &is_face)| {
+                wcs[index].evaluate(image) == is_face
+            }).for_each(|(_, weight, _)| {
                 *weight *= beta_t;
             });
-
+            
             wcs[index]
         }).collect()
     }
@@ -303,6 +321,7 @@ impl WeakClassifier {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct IntegralImage {
     pixels: Vec<u64>,
 } 
@@ -343,43 +362,38 @@ impl IntegralImage {
 pub struct TrainingImages {
     images: Vec<IntegralImage>,
     weights: Vec<f64>,
+    is_face: Vec<bool>,
 }
+
+pub struct TrainingImage {
+    images: IntegralImage,
+    weights: f64,
+    is_face: bool,
+}
+
 impl TrainingImages {
-    pub fn iter(&self) -> impl Iterator<Item = (&IntegralImage, &f64)> {
-        self.images.iter().zip(self.weights.iter())
+    pub fn iter(&self) -> impl Iterator<Item = (&IntegralImage, &f64, &bool)> {
+        use itertools::izip;
+        izip!(self.images.iter(), self.weights.iter(), self.is_face.iter())
     }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&IntegralImage, &mut f64)> {
-        self.images.iter().zip(self.weights.iter_mut())
+    pub fn iter_mut(&mut self)
+        -> impl Iterator<Item = (&IntegralImage, &mut f64, &bool)> {
+        use itertools::izip;
+        izip!(self.images.iter(), self.weights.iter_mut(), self.is_face.iter())
     }
-
-    pub fn from_dir(faces_path: &str, not_faces_path: &str) 
-        -> [TrainingImages; 2] {
-        let faces = TrainingImages::new(faces_path);
-        let not_faces = TrainingImages::new(not_faces_path);
-        [faces, not_faces]
-    }
-
-    pub fn len(&self) -> usize {
-        self.images.len()
-    }
+    pub fn len(&self) -> usize { self.images.len() }
     
-    pub fn normalize_weights(set: &mut [TrainingImages; 2]) {
+    pub fn normalize_weights(set: &mut TrainingImages) {
         // Sum over the weights of all the images
-        let sum = set[0].weights.iter().sum::<f64>()
-            + set[1].weights.iter().sum::<f64>();
+        let sum = set.weights.iter().sum::<f64>();
         
         // Divide each image's original weight by the sum
-        for weight in &mut set[0].weights {
-            *weight /= sum;
-        }
-        for weight in &mut set[1].weights {
-            *weight /= sum;
-        }
+        for weight in &mut set.weights { *weight /= sum; }
     }
 
-    fn new(path: &str) -> TrainingImages {
-        let images: Vec<_> = fs::read_dir(path).unwrap().map(|img| {
+    pub fn from_dirs(faces_dir: &str, not_faces_dir: &str) -> TrainingImages {
+        // Open all of the images of faces
+        let faces = fs::read_dir(faces_dir).unwrap().map(|img| {
             // Open the image
             let img = ImageReader::open(img.unwrap().path())
                 .unwrap()
@@ -387,10 +401,38 @@ impl TrainingImages {
                 .unwrap();
     
             // Convert image to Integral Image
-            IntegralImage::new(img)
-        }).collect();
+            (true, IntegralImage::new(img))
+        });
 
+        let not_faces = fs::read_dir(not_faces_dir).unwrap().map(|img| {
+            // Open the image
+            let img = ImageReader::open(img.unwrap().path())
+                .unwrap()
+                .decode()
+                .unwrap();
+    
+            // Convert image to Integral Image
+            (false, IntegralImage::new(img))
+        });
+
+        let (is_face, images): (Vec<_>, Vec<_>) = faces.chain(not_faces).unzip();
+        
+        // Initialize a weights vector
         let weights = vec![1.0/(2.0 * images.len() as f64); images.len()];
-        TrainingImages { images, weights }
+
+        // Return the created set
+        TrainingImages { images, weights, is_face}
+    }
+    pub fn sort(&mut self, wc: &WeakClassifier) {
+        use permutation::permutation::sort_by;
+        let evals: Vec<_> = self.images.iter().map(|img| wc.evaluate(img)).collect();
+        let perm = sort_by(&evals[..], |a, b| {
+            a.partial_cmp(&b).unwrap()
+        });
+        self.weights = perm.apply_slice(&self.weights[..]);
+        self.images = perm.apply_slice(&self.images[..]);
+        self.is_face = perm.apply_slice(&self.is_face[..]);
     }
 }
+
+

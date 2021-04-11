@@ -42,7 +42,7 @@ NIX_HARDENING_ENABLE='fortify stackprotector pic strictoverflow format relro bin
 export NIX_HARDENING_ENABLE
 NIX_INDENT_MAKE=1
 export NIX_INDENT_MAKE
-NIX_LDFLAGS='-rpath /home/mwglen/face-recognition/outputs/out/lib64 -rpath /home/mwglen/face-recognition/outputs/out/lib  -L/nix/store/5kznrncnp9v828a7i723j72bh9wkbkg7-python3-3.8.8/lib -L/nix/store/fmxgxr7kx29aqbzjp662v5mhkrbjvl91-gcc-10.2.0-lib/lib -L/nix/store/5kznrncnp9v828a7i723j72bh9wkbkg7-python3-3.8.8/lib -L/nix/store/fmxgxr7kx29aqbzjp662v5mhkrbjvl91-gcc-10.2.0-lib/lib'
+NIX_LDFLAGS='-rpath /home/mwglen/temp/facial-recognition/outputs/out/lib64 -rpath /home/mwglen/temp/facial-recognition/outputs/out/lib  -L/nix/store/5kznrncnp9v828a7i723j72bh9wkbkg7-python3-3.8.8/lib -L/nix/store/fmxgxr7kx29aqbzjp662v5mhkrbjvl91-gcc-10.2.0-lib/lib -L/nix/store/5kznrncnp9v828a7i723j72bh9wkbkg7-python3-3.8.8/lib -L/nix/store/fmxgxr7kx29aqbzjp662v5mhkrbjvl91-gcc-10.2.0-lib/lib'
 export NIX_LDFLAGS
 NIX_LIB64_IN_SELF_RPATH=1
 NIX_NO_SELF_RPATH=1
@@ -129,7 +129,7 @@ nativeBuildInputs=
 export nativeBuildInputs
 nobuildPhase=$'echo\necho "This derivation is not meant to be built, aborting";\necho\nexit 1\n'
 export nobuildPhase
-out=/home/mwglen/face-recognition/outputs/out
+out=/home/mwglen/temp/facial-recognition/outputs/out
 export out
 outputBin=out
 outputDev=out
@@ -153,7 +153,7 @@ postFixupHooks=([0]="_multioutPropagateDev")
 postUnpackHooks=([0]="_updateSourceDateEpochFromSourceRoot")
 preConfigureHooks=([0]="_multioutConfig")
 preFixupHooks=([0]="_moveToShare" [1]="_multioutDocs" [2]="_multioutDevs")
-prefix=/home/mwglen/face-recognition/outputs/out
+prefix=/home/mwglen/temp/facial-recognition/outputs/out
 propagatedBuildDepFiles=([0]="propagated-build-build-deps" [1]="propagated-native-build-inputs" [2]="propagated-build-target-deps")
 propagatedBuildInputs=
 export propagatedBuildInputs

@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 
 mod detect;
-mod features;
+mod cascade;
 mod map;
 mod recognize;
 
@@ -13,7 +13,7 @@ use clap::{load_yaml, App};
 fn main() {
     let yaml = load_yaml!("cli.yml");
     match App::from_yaml(yaml).get_matches().subcommand() {
-        ("features", Some(m)) => features::main(m),
+        ("cascade", Some(m)) => cascade::main(m),
         ("recognize", Some(m)) => recognize::main(m),
         ("detect", Some(m)) => detect::main(m),
         ("map", Some(m)) => map::main(m),
