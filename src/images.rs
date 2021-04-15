@@ -11,7 +11,7 @@ pub struct IntegralImage {
 impl IntegralImage {
     pub fn new(img: DynamicImage) -> IntegralImage {
         // Resize the image and turn it to grayscale
-        let img = img.resize(WL_32, WH_32, FilterType::Triangle).into_luma8();
+        let img = img.resize_to_fill(WL_32, WH_32, FilterType::Triangle).into_luma8();
 
         // Calculate each pixel of the integral image
         let mut pixels = Vec::<u64>::with_capacity(WL_ * WH_);
