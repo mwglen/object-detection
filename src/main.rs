@@ -32,15 +32,14 @@ fn main() {
 }
 
 fn process_images(m: &clap::ArgMatches) {
-    
-    println!("Processing images");
+    println!("Processing images...");
     let now = Instant::now();
     let images = TrainingImages::from_dirs(FACES_DIR, NOT_FACES_DIR);
     println!( "Finished processing images in {} seconds", now.elapsed().as_secs() );
     println!( "Processed {} images of faces found in {}", images.len(), FACES_DIR );
     println!( "Processed {} images of non-faces found in {}", images.len(), NOT_FACES_DIR );
 
-    let data = serde_json::to_string_pretty(&images).unwrap();
+    let data = serde_json::to_string(&images).unwrap();
     fs::write(CACHED_IMAGES, &data).expect("Unable to write to file");
 }
 
@@ -59,16 +58,6 @@ fn cascade(m: &clap::ArgMatches) {
         wcs.len()*size_of::<WeakClassifier>());
     println!("It takes up {} bytes in memory",
         wcs.capacity()*size_of::<WeakClassifier>());
-
-    println!("Calculating thresholds of weak classifiers");
-    let now = Instant::now();
-    let bar = ProgressBar::new(wcs.len() as u64);
-    for wc in &mut wcs {
-        wc.calculate_threshold(&mut images);
-        bar.inc(1);
-    }
-    bar.finish();
-    println!("Calculated thresholds in {} seconds", now.elapsed().as_secs());
 
     println!("Building the cascade of weak classifiers");
     let now = Instant::now();

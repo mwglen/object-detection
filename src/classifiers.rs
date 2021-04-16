@@ -17,7 +17,7 @@ impl WeakClassifier {
             .filter(|(_, _, &is_face)| is_face)
             .map(|(_, weight, _)| weight).sum();
 
-        // Sum of the weights of the face samples
+        // Sum of the weights of the non-face samples
         let abg: f64 = set.iter()
             .filter(|(_, _, &is_face)| !is_face)
             .map(|(_, weight, _)| weight).sum();
@@ -38,16 +38,16 @@ impl WeakClassifier {
         for xtl in 0..WL {
             for xmp in xtl..WL {
                 for xbr in xmp..WL {
-                    for ytl in 0..WL {
-                        for ymp in ytl..WL {
-                            for ybr in ymp..WL {
+                    for ytl in 0..WH {
+                        for ymp in ytl..WH {
+                            for ybr in ymp..WH {
                                 // If the rectangle has no area continue
                                 if (xtl == xbr) || (ytl == ybr) {continue;}
 
                                 // If it is a vertical two rectangle feature
                                 if xtl == xmp {
                                     // If it is a one rectangle feature skip it
-                                    if (ymp == ytl) || (ymp == xbr) {continue;}
+                                    if (ymp == ytl) || (ymp == ybr) {continue;}
                                     
                                     let white = Rectangle {
                                         top_left: [xtl, ytl],
@@ -123,8 +123,8 @@ impl WeakClassifier {
             for xm1 in (xtl+1)..(WL-2) {
                 for xm2 in (xm1+1)..(WL-1) {
                     for xbr in (xm2+1)..WL {
-                        for ytl in 0..(WL-1) {
-                            for ybr in (ytl+1)..WL {
+                        for ytl in 0..(WH-1) {
+                            for ybr in (ytl+1)..WH {
                                 // Horizontal Feature
                                 let white1 = Rectangle {
                                     top_left: [xtl, ytl],
@@ -143,10 +143,18 @@ impl WeakClassifier {
                                     feature: Feature::ThreeRect { white, black },
                                     threshold: 0,
                                 });
-
-                                let xtl = ytl; let ytl = xbr; let xbr = ybr;
-                                let ybr = xtl; let ym1 = xm2; let ym2 = xm1;
-
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for ytl in 0..(WH-3) {
+            for ym1 in (ytl+1)..(WH-2) {
+                for ym2 in (ym1+1)..(WH-1) {
+                    for ybr in (ym2+1)..WH {
+                        for xtl in 0..(WL-1) {
+                            for xbr in (xtl+1)..WL {
                                 // Vertical Feature
                                 let white1 = Rectangle {
                                     top_left: [xtl, ytl],
@@ -187,6 +195,17 @@ impl WeakClassifier {
             // Normalize the weights of the training images
             println!("Normalizing Image Weights");
             TrainingImages::normalize_weights(set);
+            
+            // Calculate thresholds using the updated weights
+            println!("Calculating thresholds of weak classifiers");
+            let now = Instant::now();
+            let bar = ProgressBar::new(wcs.len() as u64);
+            for wc in &mut wcs {
+                wc.calculate_threshold(&mut images);
+                bar.inc(1);
+            }
+            bar.finish();
+            println!("Calculated thresholds in {} seconds", now.elapsed().as_secs());
 
             // Calculate the error for each weak classifier
             println!("Calculating Errors for Weak Classifiers");

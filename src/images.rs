@@ -3,6 +3,7 @@ use image::{imageops::FilterType, io::Reader as ImageReader, DynamicImage};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use std::fs;
+use indicatif::ProgressBar;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct IntegralImage {
@@ -68,7 +69,14 @@ impl TrainingImages {
         for weight in &mut set.weights { *weight /= sum; }
     }
 
-    pub fn from_dirs(faces_dir: &str, not_faces_dir: &str) -> TrainingImages {
+    pub fn from_dirs(
+        faces_dir: &str, 
+        not_faces_dir: &str, 
+    ) -> TrainingImages {
+        let num_faces = fs::read_dir(faces_dir).unwrap().count();
+        let num_not_faces = fs::read_dir(not_faces_dir).unwrap().count();
+        let bar = ProgressBar::new((num_faces + num_not_faces) as u64);
+
         // Open all of the images of faces
         let faces = fs::read_dir(faces_dir).unwrap().map(|img| {
             // Open the image
@@ -76,7 +84,8 @@ impl TrainingImages {
                 .unwrap()
                 .decode()
                 .unwrap();
-    
+            bar.inc(1);
+
             // Convert image to Integral Image
             (true, IntegralImage::new(img))
         });
@@ -87,15 +96,19 @@ impl TrainingImages {
                 .unwrap()
                 .decode()
                 .unwrap();
+            bar.inc(1);
     
             // Convert image to Integral Image
             (false, IntegralImage::new(img))
         });
 
-        let (is_face, images): (Vec<_>, Vec<_>) = faces.chain(not_faces).unzip();
-        
         // Initialize a weights vector
-        let weights = vec![1.0/(2.0 * images.len() as f64); images.len()];
+        let mut weights = vec![1.0/(2.0 * num_faces as f64); num_faces];
+        weights.append(&mut vec![1.0/(2.0 * num_not_faces as f64); num_not_faces]);
+        
+        // Chain all of the images
+        let (is_face, images): (Vec<_>, Vec<_>) = faces.chain(not_faces).unzip();
+        bar.finish();
 
         // Return the created set
         TrainingImages { images, weights, is_face}
