@@ -1,191 +1,128 @@
-use super::{TrainingImages, WL, Feature, Rectangle, IntegralImage};
+use super::{TrainingImages, WL, WH, Feature, Rectangle, IntegralImage};
 use serde::{Deserialize, Serialize};
 use indicatif::ProgressBar;
+use std::time::Instant;
+use std::cmp::Ordering;
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+struct OrderedF64(f64);
+impl Eq for OrderedF64 { }
+impl Ord for OrderedF64 {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct WeakClassifier {
     feature: Feature,
     threshold: i64,
+    pos_polarity: bool,
 }
 impl WeakClassifier {
-    pub fn calculate_threshold(&mut self, set: &mut TrainingImages) {
+    pub fn calculate_threshold(
+        &mut self, 
+        set: &mut TrainingImages, 
+        afs: f64, 
+        abg: f64
+    ) {
         // Sort the training images based on it's evaluation
         set.sort(self);
-
-        // Sum of the weights of the face samples
-        let afs: f64 = set.iter()
-            .filter(|(_, _, &is_face)| is_face)
-            .map(|(_, weight, _)| weight).sum();
-
-        // Sum of the weights of the non-face samples
-        let abg: f64 = set.iter()
-            .filter(|(_, _, &is_face)| !is_face)
-            .map(|(_, weight, _)| weight).sum();
 
         let mut fs: f64 = 0.0; // Sum of the weights of the face samples so far
         let mut bg: f64 = 0.0; // Sum of the weights of background samples so far
 
-        let errors: Vec<_> = set.iter().map(|(_, weight, is_face)| {
+        let image = set.iter().min_by_key(|(_, &weight, &is_face)| {
             // Add the weight to fs/bg
-            if *is_face {fs += *weight} else {bg += *weight};
+            if is_face {fs += weight} else {bg += weight};
             
-            // Comput the error function
-            f64::min(bg+(afs-fs), fs+(abg-bg))
-        }).collect();
+            // Compute the error function
+            OrderedF64(f64::min(bg+(afs-fs), fs+(abg-bg)))
+        }).unwrap().0;
+
+        self.threshold = self.evaluate_num(image);
     }
-    pub fn get_all() -> Vec<WeakClassifier> {
+    pub fn new(feature: Feature) -> WeakClassifier {
+        WeakClassifier {
+            feature,
+            threshold: 0,
+            pos_polarity: false,
+        }
+    }
+    pub fn get_all() ->Vec<WeakClassifier> {
+        use Feature::*;
         let mut wcs = Vec::<WeakClassifier>::with_capacity(200_000);
-        for xtl in 0..WL {
-            for xmp in xtl..WL {
-                for xbr in xmp..WL {
-                    for ytl in 0..WH {
-                        for ymp in ytl..WH {
-                            for ybr in ymp..WH {
-                                // If the rectangle has no area continue
-                                if (xtl == xbr) || (ytl == ybr) {continue;}
-
-                                // If it is a vertical two rectangle feature
-                                if xtl == xmp {
-                                    // If it is a one rectangle feature skip it
-                                    if (ymp == ytl) || (ymp == ybr) {continue;}
-                                    
-                                    let white = Rectangle {
-                                        top_left: [xtl, ytl],
-                                        bot_right: [xbr, ymp],
-                                    };
-                                    let black = Rectangle {
-                                        top_left: [xtl, ymp],
-                                        bot_right: [xbr, ybr],
-                                    };
-                                    wcs.push(WeakClassifier {
-                                        feature: Feature::TwoRect { white, black },
-                                        threshold: 0,
-                                    });
-                                    continue;
-                                }
-                                
-                                // If it is a horizontal two rectangle feature
-                                if ytl == ymp {
-                                    // If it is a one rectangle feature skip it
-                                    if (xmp == xtl) || (xmp == xbr) {continue;}
-                                    
-                                    let white = Rectangle {
-                                        top_left: [xtl, ytl],
-                                        bot_right: [xmp, ybr],
-                                    };
-                                    let black = Rectangle {
-                                        top_left: [xmp, ytl],
-                                        bot_right: [xbr, ybr],
-                                    };
-                                    wcs.push(WeakClassifier {
-                                        feature: Feature::TwoRect { white, black },
-                                        threshold: 0,
-                                    });
-                                    continue;
-                                }
-
-                                // If it is a mirror image of an already added
-                                // two rectangle feature, continue
-                                if (xbr == xmp) || (ybr == ymp) {continue;}
-
-                                // If it is a four rectangle Feature
-                                let white1 = Rectangle {
-                                    top_left: [xmp, ytl],
-                                    bot_right: [xbr, ymp],
-                                };
-                                let white2 = Rectangle {
-                                    top_left: [xtl, ymp],
-                                    bot_right: [xmp, ybr],
-                                };
-                                let black1 = Rectangle {
-                                    top_left: [xtl, ytl],
-                                    bot_right: [xmp, ymp],
-
-                                };
-                                let black2 = Rectangle {
-                                    top_left: [xmp, ymp],
-                                    bot_right: [xbr, ybr],
-                                };
-                                let white = [white1, white2];
-                                let black = [black1, black2];
-                                wcs.push(WeakClassifier {
-                                    feature: Feature::FourRect { white, black },
-                                    threshold: 0,
-                                });
-                            }
+        for w in 1..(WL+1) {
+            for h in 1..(WH+1) {
+                let mut i = 0;
+                while (i + w) < WL {
+                    let mut j = 0;
+                    while (j + h) < WH {
+                        // Horizontal Two Rectangle Features
+                        if (i + 2 * w) < WL { 
+                            let white = Rectangle::new(i, j, w, h);
+                            let black = Rectangle::new(i+w, j, w, h);
+                            let wc = WeakClassifier::new(TwoRect{white, black});
+                            wcs.push(wc);
                         }
-                    }
-                }
-            }
-        }
 
-        for xtl in 0..(WL-3) {
-            for xm1 in (xtl+1)..(WL-2) {
-                for xm2 in (xm1+1)..(WL-1) {
-                    for xbr in (xm2+1)..WL {
-                        for ytl in 0..(WH-1) {
-                            for ybr in (ytl+1)..WH {
-                                // Horizontal Feature
-                                let white1 = Rectangle {
-                                    top_left: [xtl, ytl],
-                                    bot_right: [xm1, ybr],
-                                };
-                                let white2 = Rectangle {
-                                    top_left: [xm2, ytl],
-                                    bot_right: [xbr, ybr],
-                                };
-                                let black = Rectangle {
-                                    top_left: [xm1, ytl],
-                                    bot_right: [xm2, ybr],
-                                };
-                                let white = [white1, white2];
-                                wcs.push(WeakClassifier {
-                                    feature: Feature::ThreeRect { white, black },
-                                    threshold: 0,
-                                });
-                            }
+                        // Vertically Two Rectangle Feature
+                        if (j + 2 * h) < WH { 
+                            let white = Rectangle::new(i, j, w, h);
+                            let black = Rectangle::new(i, j+h, w, h);
+                            let wc = WeakClassifier::new(TwoRect{white, black});
+                            wcs.push(wc);
                         }
-                    }
-                }
-            }
-        }
-        for ytl in 0..(WH-3) {
-            for ym1 in (ytl+1)..(WH-2) {
-                for ym2 in (ym1+1)..(WH-1) {
-                    for ybr in (ym2+1)..WH {
-                        for xtl in 0..(WL-1) {
-                            for xbr in (xtl+1)..WL {
-                                // Vertical Feature
-                                let white1 = Rectangle {
-                                    top_left: [xtl, ytl],
-                                    bot_right: [xbr, ym1],
-                                };
-                                let white2 = Rectangle {
-                                    top_left: [xtl, ym2],
-                                    bot_right: [xbr, ybr],
-                                };
-                                let black = Rectangle {
-                                    top_left: [xtl, ym1],
-                                    bot_right: [xbr, ym2],
-                                };
-                                let white = [white1, white2];
-                                wcs.push(WeakClassifier {
-                                    feature: Feature::ThreeRect { white, black },
-                                    threshold: 0,
-                                });
-                            }
+
+                        // Horizontal Three Rectangle Feature
+                        if (i + 3 * w) < WL {
+                            let left = Rectangle::new(i, j, w, h);
+                            let mid = Rectangle::new(i+w, j, w, h);
+                            let right = Rectangle::new(i+2*w, j, w, h);
+
+                            let white = [left, right];
+                            let black = mid; 
+                            let wc = WeakClassifier::new(ThreeRect{white, black});
+                            wcs.push(wc);
                         }
+                        
+                        // Vertical Three Rectangle Feature
+                        if (j + 3 * h) < WH {
+                            let top = Rectangle::new(i, j, w, h);
+                            let mid = Rectangle::new(i, j+h, w, h);
+                            let bot = Rectangle::new(i, j+2*h, w, h);
+
+                            let white = [top, bot];
+                            let black = mid; 
+                            let wc = WeakClassifier::new(ThreeRect{white, black});
+                            wcs.push(wc);
+                        }
+                        
+                        // Four rectangle features
+                        if (i + 2 * w) < WL && (j + 2 * h) < WH {
+                            let top_left = Rectangle::new(i, j, w, h);
+                            let top_right = Rectangle::new(i+w, j, w, h);
+                            let bot_left = Rectangle::new(i, j+h, w, h);
+                            let bot_right = Rectangle::new(i+w, j+h, w, h);
+
+                            let white = [top_right, bot_left];
+                            let black = [top_left, bot_right]; 
+                            let wc = WeakClassifier::new(FourRect{white, black});
+                            wcs.push(wc);
+                        }
+                        j += 1;
                     }
+                    i += 1;
                 }
             }
         }
         wcs
     }
-
+    
     pub fn build_cascade(
-        wcs: &Vec<WeakClassifier>, 
+        wcs: &mut Vec<WeakClassifier>, 
         set: &mut TrainingImages,
-        cascade_size: usize
+        cascade_size: usize,
     ) -> Vec<WeakClassifier> {
         (0..cascade_size).map(|i| {
             println!("#########################");
@@ -200,8 +137,18 @@ impl WeakClassifier {
             println!("Calculating thresholds of weak classifiers");
             let now = Instant::now();
             let bar = ProgressBar::new(wcs.len() as u64);
-            for wc in &mut wcs {
-                wc.calculate_threshold(&mut images);
+
+            // Sum of the weights of the face samples
+            let afs: f64 = set.iter()
+                .filter(|(_, _, &is_face)| is_face)
+                .map(|(_, weight, _)| weight).sum();
+            // Sum of the weights of the non-face samples
+            let abg: f64 = set.iter()
+                .filter(|(_, _, &is_face)| !is_face)
+                .map(|(_, weight, _)| weight).sum();
+            
+            for wc in wcs.iter_mut() {
+                wc.calculate_threshold(set, afs, abg);
                 bar.inc(1);
             }
             bar.finish();
@@ -242,9 +189,15 @@ impl WeakClassifier {
             wcs[index]
         }).collect()
     }
-    
     pub fn evaluate(&self, ii: &IntegralImage) -> bool {
-        let sum = match self.feature {
+        if self.pos_polarity {
+            self.evaluate_num(ii) < self.threshold
+        } else {
+            self.evaluate_num(ii) > self.threshold
+        }
+    }
+    pub fn evaluate_num(&self, ii: &IntegralImage) -> i64 {
+        match self.feature {
             Feature::TwoRect{black, white} => {
                 ii.rect_sum(&black) - ii.rect_sum(&white)
             }
@@ -255,8 +208,6 @@ impl WeakClassifier {
                 black.iter().map(|rect| ii.rect_sum(rect)).sum::<i64>()
                     - white.iter().map(|rect| ii.rect_sum(rect)).sum::<i64>()
             }
-        };
-        sum >= self.threshold
+        }
     }
 }
-

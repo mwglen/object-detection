@@ -70,7 +70,7 @@ fn cascade(m: &clap::ArgMatches) {
 
     println!("Building the cascade of weak classifiers");
     let now = Instant::now();
-    let wcs = WeakClassifier::build_cascade(&wcs, &mut images, 5);
+    let wcs = WeakClassifier::build_cascade(&mut wcs, &mut images, 5);
     println!("Built the cascade in {} seconds", now.elapsed().as_secs());
 
     // Output the data

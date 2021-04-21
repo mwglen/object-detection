@@ -115,7 +115,8 @@ impl TrainingImages {
     }
     pub fn sort(&mut self, wc: &WeakClassifier) {
         use permutation::permutation::sort_by;
-        let evals: Vec<_> = self.images.iter().map(|img| wc.evaluate(img)).collect();
+        let evals: Vec<_> = self.images.iter()
+            .map(|img| wc.evaluate_num(img)).collect();
         let perm = sort_by(&evals[..], |a, b| {
             a.partial_cmp(&b).unwrap()
         });

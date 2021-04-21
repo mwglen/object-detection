@@ -16,6 +16,16 @@ pub const WH_: usize = WH as usize;
 pub struct Rectangle {
     pub top_left: [WindowSize; 2],
     pub bot_right: [WindowSize; 2],
+} impl Rectangle {
+    pub fn new(
+        x: WindowSize, y: WindowSize, 
+        w: WindowSize, h: WindowSize
+    ) -> Rectangle {
+        Rectangle {
+            top_left: [w, y],
+            bot_right: [x+w, y+h]
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
