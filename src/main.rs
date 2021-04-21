@@ -13,6 +13,7 @@ use clap::{load_yaml, App};
 use indicatif::ProgressBar;
 use std::fs;
 use std::time::Instant;
+use std::path::Path;
 
 const FACES_DIR: &str = "images/faces";
 const NOT_FACES_DIR: &str = "images/not_faces";
@@ -22,31 +23,39 @@ const CASCADE: &str = "cache/cascade.json";
 fn main() {
     let yaml = load_yaml!("cli.yml");
     match App::from_yaml(yaml).get_matches().subcommand() {
-        ("process_images", Some(m)) => process_images(m),
         ("cascade", Some(m)) => cascade(m),
         ("detect", Some(m)) => detect(m),
-        ("recognize", Some(m)) => recognize(m),
-        ("map", Some(m)) => map(m),
-        _ => (),
+        _ => {
+            println!("Argument required:");
+            println!("Run with argument \"cascade\" to build and train the cascade
+                used in facial detection.");
+            println!("Run with argument \"detect\" to detect faces in an image");
+        },
+
     }
 }
 
-fn process_images(m: &clap::ArgMatches) {
+fn process_images() -> TrainingImages {
     println!("Processing images...");
     let now = Instant::now();
     let images = TrainingImages::from_dirs(FACES_DIR, NOT_FACES_DIR);
     println!( "Finished processing images in {} seconds", now.elapsed().as_secs() );
-    println!( "Processed {} images of faces found in {}", images.len(), FACES_DIR );
-    println!( "Processed {} images of non-faces found in {}", images.len(), NOT_FACES_DIR );
 
     let data = serde_json::to_string(&images).unwrap();
     fs::write(CACHED_IMAGES, &data).expect("Unable to write to file");
+    images
 }
 
 fn cascade(m: &clap::ArgMatches) {
 
-    let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
-    let mut images: TrainingImages = serde_json::from_str(&data).unwrap();
+    let mut images: TrainingImages = {
+        if Path::new(CACHED_IMAGES).exists() {
+            let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
+            serde_json::from_str(&data).unwrap()
+        } else {
+            process_images()
+        }
+    };
 
     println!("Creating a vector of all weak classifiers");
     let now = Instant::now();
@@ -79,5 +88,3 @@ fn detect(m: &clap::ArgMatches) {
     // let img = IntegralImage::new(img);
     unimplemented!();
 }
-fn recognize(_m: &clap::ArgMatches) { unimplemented!(); }
-fn map(_m: &clap::ArgMatches) { unimplemented!(); }

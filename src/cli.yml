@@ -4,10 +4,6 @@ author: Matthew G. <mwglen@ncsu.edu>
 about: Does some things 
 args:
 subcommands:
-    - process_images:
-        about: >
-            Processes images used in training the facial detection and recognition
-            systems
     - cascade:
         about: >
             Finds the most useful features and thresholds for 
@@ -24,35 +20,6 @@ subcommands:
             Finds all the faces in a given image
         args:
             - input_image: 
-                required: true
-                help: Sets the path to the input image
-                index: 1
-            - output:
-                short: o
-                takes_value: true
-                help: >
-                    outputs the input image modified with a red rectangle 
-                    around all detected faces
-    - map: 
-        about: >
-            Returns a maps from a face to a point in a euclidean space 
-            where distance represents facial similarity 
-        args:
-            - input_image:
-                required: true
-                help: Sets the path to the input image
-                index: 1
-
-    - recognize:
-        about: >
-            Recognizes an image of a face
-        args:
-            - data:
-                long: data
-                required: true
-                takes_value: true
-                help: Sets the directory containing the data the people to match to
-            - input_image:
                 required: true
                 help: Sets the path to the input image
                 index: 1
