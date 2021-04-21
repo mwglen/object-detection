@@ -1,4 +1,7 @@
-use super::{TrainingImages, WL, WH, Feature, Rectangle, IntegralImage};
+use super::{
+    TrainingImages, WL, WH, Feature, 
+    Rectangle, IntegralImage, WindowSize
+};
 use serde::{Deserialize, Serialize};
 use indicatif::ProgressBar;
 use std::time::Instant;
@@ -60,25 +63,25 @@ impl WeakClassifier {
                     while (j + h) < WH {
                         // Horizontal Two Rectangle Features
                         if (i + 2 * w) < WL { 
-                            let white = Rectangle::new(i, j, w, h);
-                            let black = Rectangle::new(i+w, j, w, h);
+                            let white = Rectangle::<WindowSize>::new(i, j, w, h);
+                            let black = Rectangle::<WindowSize>::new(i+w, j, w, h);
                             let wc = WeakClassifier::new(TwoRect{white, black});
                             wcs.push(wc);
                         }
 
                         // Vertically Two Rectangle Feature
                         if (j + 2 * h) < WH { 
-                            let white = Rectangle::new(i, j, w, h);
-                            let black = Rectangle::new(i, j+h, w, h);
+                            let white = Rectangle::<WindowSize>::new(i, j, w, h);
+                            let black = Rectangle::<WindowSize>::new(i, j+h, w, h);
                             let wc = WeakClassifier::new(TwoRect{white, black});
                             wcs.push(wc);
                         }
 
                         // Horizontal Three Rectangle Feature
                         if (i + 3 * w) < WL {
-                            let left = Rectangle::new(i, j, w, h);
-                            let mid = Rectangle::new(i+w, j, w, h);
-                            let right = Rectangle::new(i+2*w, j, w, h);
+                            let left = Rectangle::<WindowSize>::new(i, j, w, h);
+                            let mid = Rectangle::<WindowSize>::new(i+w, j, w, h);
+                            let right = Rectangle::<WindowSize>::new(i+2*w, j, w, h);
 
                             let white = [left, right];
                             let black = mid; 
@@ -88,9 +91,9 @@ impl WeakClassifier {
                         
                         // Vertical Three Rectangle Feature
                         if (j + 3 * h) < WH {
-                            let top = Rectangle::new(i, j, w, h);
-                            let mid = Rectangle::new(i, j+h, w, h);
-                            let bot = Rectangle::new(i, j+2*h, w, h);
+                            let top = Rectangle::<WindowSize>::new(i, j, w, h);
+                            let mid = Rectangle::<WindowSize>::new(i, j+h, w, h);
+                            let bot = Rectangle::<WindowSize>::new(i, j+2*h, w, h);
 
                             let white = [top, bot];
                             let black = mid; 
@@ -100,10 +103,10 @@ impl WeakClassifier {
                         
                         // Four rectangle features
                         if (i + 2 * w) < WL && (j + 2 * h) < WH {
-                            let top_left = Rectangle::new(i, j, w, h);
-                            let top_right = Rectangle::new(i+w, j, w, h);
-                            let bot_left = Rectangle::new(i, j+h, w, h);
-                            let bot_right = Rectangle::new(i+w, j+h, w, h);
+                            let top_left = Rectangle::<WindowSize>::new(i, j, w, h);
+                            let top_right = Rectangle::<WindowSize>::new(i+w, j, w, h);
+                            let bot_left = Rectangle::<WindowSize>::new(i, j+h, w, h);
+                            let bot_right = Rectangle::<WindowSize>::new(i+w, j+h, w, h);
 
                             let white = [top_right, bot_left];
                             let black = [top_left, bot_right]; 
@@ -189,13 +192,11 @@ impl WeakClassifier {
             wcs[index]
         }).collect()
     }
+    
     pub fn evaluate(&self, ii: &IntegralImage) -> bool {
-        if self.pos_polarity {
-            self.evaluate_num(ii) < self.threshold
-        } else {
-            self.evaluate_num(ii) > self.threshold
-        }
+        self.pos_polarity ^ (self.evaluate_num(ii) > self.threshold)
     }
+    
     pub fn evaluate_num(&self, ii: &IntegralImage) -> i64 {
         match self.feature {
             Feature::TwoRect{black, white} => {
@@ -210,4 +211,21 @@ impl WeakClassifier {
             }
         }
     }
+    
+    pub fn evaluate_(&self, ii: &IntegralImage, w: &Rectangle::<u32>) -> bool {
+            
+         let value = match self.feature {
+             Feature::TwoRect{black, white} => {
+                 ii.rect_sum_(&black, w) - ii.rect_sum_(&white, w)
+             }
+             Feature::ThreeRect{black, white} => {
+                 ii.rect_sum_(&black, w) - ii.rect_sum_(&white[0], w) - ii.rect_sum_(&white[1], w)
+             }
+             Feature::FourRect{black, white} => {
+                 black.iter().map(|rect| ii.rect_sum_(rect, w)).sum::<i64>()
+                     - white.iter().map(|rect| ii.rect_sum_(rect, w)).sum::<i64>()
+             }
+         };
+         self.pos_polarity ^ (value > self.threshold)
+     }
 }

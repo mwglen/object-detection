@@ -1,4 +1,4 @@
-use super::{WH_, WH_32, WL_, WL_32, WeakClassifier, Rectangle};
+use super::{WH_, WH_32, WL_, WL_32, WeakClassifier, Rectangle, WindowSize};
 use image::{imageops::FilterType, io::Reader as ImageReader, DynamicImage};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -29,7 +29,7 @@ impl IntegralImage {
         }
         IntegralImage { pixels }
     }
-    pub fn rect_sum(&self, r: &Rectangle) -> i64 {
+    pub fn rect_sum(&self, r: &Rectangle<WindowSize>) -> i64 {
         let xtl = usize::from(r.top_left[0]);
         let ytl = usize::from(r.top_left[1]);
         let xbr = usize::from(r.bot_right[0]);
@@ -40,7 +40,20 @@ impl IntegralImage {
             - self.pixels[xtl + WL_*ybr] as i64
             + self.pixels[xtl + WL_*ytl] as i64
     }
+    
+    pub fn rect_sum_(&self, r: &Rectangle<WindowSize>, w: &Rectangle<u32>) -> i64 {
+        let xtl = usize::from(r.top_left[0]) + (w.top_left[0] as usize);
+        let ytl = usize::from(r.top_left[1]) + (w.top_left[1] as usize);
+        let xbr = usize::from(r.bot_right[0]) + (w.bot_right[0] as usize);
+        let ybr = usize::from(r.bot_right[1]) + (w.bot_right[1] as usize);
+        
+        self.pixels[xbr + WL_*ybr] as i64
+            - self.pixels[xbr + WL_*ytl] as i64
+            - self.pixels[xtl + WL_*ybr] as i64
+            + self.pixels[xtl + WL_*ytl] as i64
+    }
 }
+
 
 /// A struct-of-arrays representing all of the training images 
 #[derive(Deserialize, Serialize, Debug, Clone)]
