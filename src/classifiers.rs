@@ -212,18 +212,22 @@ impl WeakClassifier {
         }
     }
     
-    pub fn evaluate_(&self, ii: &IntegralImage, w: &Rectangle::<u32>) -> bool {
-            
-         let value = match self.feature {
+    pub fn evaluate_(
+        &self, 
+        ii: &IntegralImage, 
+        r: &Rectangle::<u32>,
+    ) -> bool {
+        let value = match self.feature {
              Feature::TwoRect{black, white} => {
-                 ii.rect_sum_(&black, w) - ii.rect_sum_(&white, w)
+                 ii.rect_sum_(&black, r) - ii.rect_sum_(&white, r)
              }
              Feature::ThreeRect{black, white} => {
-                 ii.rect_sum_(&black, w) - ii.rect_sum_(&white[0], w) - ii.rect_sum_(&white[1], w)
+                 ii.rect_sum_(&black, r) - ii.rect_sum_(&white[0], r) 
+                     - ii.rect_sum_(&white[1], r)
              }
              Feature::FourRect{black, white} => {
-                 black.iter().map(|rect| ii.rect_sum_(rect, w)).sum::<i64>()
-                     - white.iter().map(|rect| ii.rect_sum_(rect, w)).sum::<i64>()
+                 black.iter().map(|rect| ii.rect_sum_(rect, r)).sum::<i64>()
+                     - white.iter().map(|rect| ii.rect_sum_(rect, r)).sum::<i64>()
              }
          };
          self.pos_polarity ^ (value > self.threshold)

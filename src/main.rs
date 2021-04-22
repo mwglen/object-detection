@@ -14,12 +14,7 @@ use indicatif::ProgressBar;
 use std::fs;
 use std::time::Instant;
 use std::path::Path;
-use image::{
-    imageops::FilterType, 
-    io::Reader as ImageReader, 
-    DynamicImage,
-    GenericImageView,
-};
+use image::{imageops::FilterType, io::Reader as ImageReader, GenericImageView};
 
 const FACES_DIR: &str = "images/faces";
 const NOT_FACES_DIR: &str = "images/not_faces";
@@ -101,11 +96,11 @@ fn detect(m: &clap::ArgMatches) {
     };
     
     let path = m.value_of("input_image").unwrap();
-    let output_path = "output/".to_owned() + 
+    let output_img = "output/".to_owned() + 
         Path::new(path).file_name().unwrap().to_str().unwrap();
     let img = ImageReader::open(path).unwrap().decode().unwrap().to_luma8();
     let img_width = img.width(); let img_height = img.height();
-    let ii = IntegralImage::new(DynamicImage::ImageLuma8(img));
+    let ii = IntegralImage::new(&img);
     let mut faces = Vec::<Rectangle::<u32>>::new();
 
     let max_f = (img_width/WL_32).min(img_height/WH_32);
@@ -113,14 +108,14 @@ fn detect(m: &clap::ArgMatches) {
         for x in 0..(img_width - f*WL_32) {
             for y in 0..(img_height - f*WH_32) { 
                 let w = Rectangle::<u32>::new(x, y, f*WL_32, f*WH_32);
-                for wc in &cascade { if !wc.evaluate_(&ii, &w) {continue;} }
+                for wc in &cascade {if !wc.evaluate_(&ii, &w) {continue;}}
                 faces.push(w);
             }
         }
     }
 
     let data = serde_json::to_string_pretty(&faces).unwrap();
-    fs::write(output_path, &data).expect("Unable to write to file");
+    fs::write("output/faces.json", &data).expect("Unable to write to file");
 
     println!("Finished");
 }
