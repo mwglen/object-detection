@@ -23,7 +23,7 @@ pub struct Rectangle<T: Unsigned + Copy> {
         w: T, h: T
     ) -> Rectangle::<T> {
         Rectangle::<T> {
-            top_left: [w, y],
+            top_left: [x, y],
             bot_right: [x+w, y+h]
         }
     }

@@ -34,16 +34,30 @@ impl WeakClassifier {
 
         let mut fs: f64 = 0.0; // Sum of the weights of the face samples so far
         let mut bg: f64 = 0.0; // Sum of the weights of background samples so far
+        let mut min_err: f64 = 1.0; // The minimum value of the error function
+        let mut polarity: bool; // The polarity that gives the minimum value
+        let mut best_image = &set.images[0];
 
-        let image = set.iter().min_by_key(|(_, &weight, &is_face)| {
+        for (image, weight, &is_face) in set.iter() {
             // Add the weight to fs/bg
             if is_face {fs += weight} else {bg += weight};
             
             // Compute the error function
-            OrderedF64(f64::min(bg+(afs-fs), fs+(abg-bg)))
-        }).unwrap().0;
+            let err = f64::min(bg+afs-fs, fs+abg-bg);
+            
+            // If we found a threshold with less error update
+            // min_err and the polarity
+            if err < min_err {
+                min_err = err;
+                best_image = image;
+                if fs > bg {self.pos_polarity = true} 
+                else {self.pos_polarity = false}
+            }
+            
+        }
+        self.threshold = self.evaluate_num(&best_image);
 
-        self.threshold = self.evaluate_num(image);
+
     }
     pub fn new(feature: Feature) -> WeakClassifier {
         WeakClassifier {
@@ -69,7 +83,7 @@ impl WeakClassifier {
                             wcs.push(wc);
                         }
 
-                        // Vertically Two Rectangle Feature
+                        // Vertical Two Rectangle Feature
                         if (j + 2 * h) < WH { 
                             let white = Rectangle::<WindowSize>::new(i, j, w, h);
                             let black = Rectangle::<WindowSize>::new(i, j+h, w, h);
@@ -145,6 +159,7 @@ impl WeakClassifier {
             let afs: f64 = set.iter()
                 .filter(|(_, _, &is_face)| is_face)
                 .map(|(_, weight, _)| weight).sum();
+            
             // Sum of the weights of the non-face samples
             let abg: f64 = set.iter()
                 .filter(|(_, _, &is_face)| !is_face)
@@ -163,7 +178,7 @@ impl WeakClassifier {
             let errors: Vec<_> = wcs.iter().map(|wc| {
                 bar.inc(1);
                 set.iter().filter(|(image, _, &is_face)| {
-                    is_face ^ !wc.evaluate(image)
+                    is_face != wc.evaluate(image)
                 }).map(|(_, w, _)| *w).sum::<f64>()
             }).collect();
             bar.finish();
@@ -192,9 +207,9 @@ impl WeakClassifier {
             wcs[index]
         }).collect()
     }
-    
+      
     pub fn evaluate(&self, ii: &IntegralImage) -> bool {
-        self.pos_polarity ^ (self.evaluate_num(ii) > self.threshold)
+        self.pos_polarity == (self.evaluate_num(ii) < self.threshold)
     }
     
     pub fn evaluate_num(&self, ii: &IntegralImage) -> i64 {
@@ -230,6 +245,6 @@ impl WeakClassifier {
                      - white.iter().map(|rect| ii.rect_sum_(rect, r)).sum::<i64>()
              }
          };
-         self.pos_polarity ^ (value > self.threshold)
+         self.pos_polarity == (value < self.threshold)
      }
 }

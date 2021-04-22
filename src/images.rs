@@ -64,7 +64,7 @@ impl IntegralImage {
 /// A struct-of-arrays representing all of the training images 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TrainingImages {
-    images: Vec<IntegralImage>,
+    pub images: Vec<IntegralImage>,
     weights: Vec<f64>,
     is_face: Vec<bool>,
 }
