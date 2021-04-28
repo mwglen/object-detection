@@ -84,6 +84,10 @@ fn cascade() {
         let out_path = SC_PATH.to_owned() + &i.to_string() + ".json";
         let data = serde_json::to_string(&wcs).unwrap();
         fs::write(out_path, &data).expect("Unable to cache strong classifier");
+
+
+        // Remove the true negatives from the training set
+        set.retain(|data| data.is_face || sc.classify(&data.image));
         sc
     }).collect();
     println!("Built cascade in {} seconds", now.elapsed().as_secs());
