@@ -32,7 +32,9 @@ pub struct StrongClassifier {
         println!("Built strong classifier in {} seconds", now.elapsed().as_secs());
 
         // Calculate the weights of each weak classifier in the strong classifier
-        let weights = wcs.iter().map(|wc| f64::ln(1.0/wc.error(set))).collect();
+        let weights = wcs.iter().map(|wc| wc.error(set))
+            .map(|err| err / (1.0 - err))
+            .map(|beta| f64::ln(1.0/beta)).collect();
 
         // Build and return the strong classifier
         StrongClassifier {
