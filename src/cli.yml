@@ -1,23 +1,21 @@
 name: Facial Detection and Recognition Application
 version: "1.0"
 author: Matthew G. <mwglen@ncsu.edu>
-about: Does some things 
+about: Detects faces using the Viola-Jones algorithm for object detection
 args:
 subcommands:
+    - process_images: 
+        about: >
+            Processes training images.
     - cascade:
         about: >
-            Finds the most useful features and thresholds for 
-            use in viola-jones facial detection
-        args:
-            - output:
-                default_value: cascade.json
-                short: o
-                help: >
-                    Sets the file to output the cascade of weak classifiers.
-                    Each weak classifier has a threshold and a corresponding feature.
+            Builds the cascade used in facial detection.
+    - test: 
+        about: >
+            Tests the cascade created from the \"cascade\" subcommand.
     - detect: 
         about: >
-            Finds all the faces in a given image
+            Detects all the faces in a given image.
         args:
             - input_image: 
                 required: true
