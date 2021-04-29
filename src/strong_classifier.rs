@@ -1,6 +1,6 @@
-use super::{WeakClassifier, ImageData, SC_SIZE, WC_PATH, IntegralImage};
+use super::{WeakClassifier, ImageData, 
+    SC_SIZE, WC_PATH, IntegralImage, Rectangle};
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use std::fs;
 
 /// A strong classifier (made up of weighted weak classifiers)
@@ -12,12 +12,14 @@ pub struct StrongClassifier {
     
     /// Builds a strong classifier out of weak classifiers
     pub fn new(
-        wcs: &[WeakClassifier],
+        wcs: &mut [WeakClassifier],
         set: &mut [ImageData],
         tag: usize,
     ) -> StrongClassifier {
-        let now = Instant::now();
         let wcs: Vec<_> = (1..=SC_SIZE).map(|i| {
+            // Calculate Thresholds
+            WeakClassifier::calculate_thresholds(wcs, set);
+            
             // Get the best weak classifier
             println!("Choosing weak classifier {} of {}", i, SC_SIZE);
             let wc = WeakClassifier::get_best(&wcs, set);
@@ -29,7 +31,6 @@ pub struct StrongClassifier {
             fs::write(out_path, &data).expect("Unable to cache weak classifier");
             wc
         }).collect();
-        println!("Built strong classifier in {} seconds", now.elapsed().as_secs());
 
         // Calculate the weights of each weak classifier in the strong classifier
         let weights = wcs.iter().map(|wc| wc.error(set))
@@ -42,9 +43,9 @@ pub struct StrongClassifier {
             weights,
         }
     }
-    pub fn classify(&self, ii: &IntegralImage) -> bool {
+    pub fn classify(&self, ii: &IntegralImage, w: Option<Rectangle<u32>>) -> bool {
         self.wcs.iter().zip(self.weights.iter())
-            .filter(|(wc, _)| wc.classify(ii, None))
+            .filter(|(wc, _)| wc.classify(ii, w))
             .map(|(_, weight)| weight)
             .sum::<f64>() >= self.weights.iter().sum::<f64>()/2.0
     }

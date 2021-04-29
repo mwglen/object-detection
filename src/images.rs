@@ -1,8 +1,7 @@
-use super::{WH_32, WL_32, Rectangle, Window};
+use super::{WH_32, WL_32, Rectangle, Window, new_bar};
 use image::{imageops::FilterType, io::Reader as ImageReader,ImageBuffer, Luma};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use indicatif::ProgressBar;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct IntegralImage {
@@ -69,7 +68,7 @@ pub struct ImageData {
 
         // Create a vector to hold the image data
         let mut set = Vec::<ImageData>::with_capacity(num_faces + num_others);
-        let bar = ProgressBar::new((num_faces + num_others) as u64);
+        let bar = new_bar(num_faces + num_others, "Processing Images...");
 
         // Calculate the weight of each face image
         let weight = 1.0/(2*num_faces) as f64;
@@ -117,6 +116,7 @@ pub struct ImageData {
             set.push(ImageData {image, weight, is_face: false});
             bar.inc(1);
         }
+        bar.finish();
         set
     }
 

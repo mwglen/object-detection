@@ -9,7 +9,6 @@ pub use strong_classifier::StrongClassifier;
 
 use clap::{load_yaml, App, AppSettings};
 use std::fs;
-use std::time::Instant;
 use std::path::Path;
 use image::io::Reader as ImageReader;
 
@@ -19,7 +18,7 @@ const CACHED_IMAGES: &str = "cache/images.json";
 const CASCADE: &str = "cache/cascade.json";
 const SC_PATH: &str = "cache/strong";
 const WC_PATH: &str = "cache/weak";
-const SC_SIZE: usize = 3;
+const SC_SIZE: usize = 1;
 const CASCADE_SIZE: usize = 1;
 
 fn main() {
@@ -42,10 +41,7 @@ fn main() {
 /// Processes images for use in building the cascade
 fn process_images() {
     // Find and process images
-    println!("Processing images...");
-    let now = Instant::now();
     let set = ImageData::from_dirs(FACES_DIR, NOT_FACES_DIR);
-    println!("Finished processing images in {} seconds", now.elapsed().as_secs());
 
     // Save image data to cache
     let data = serde_json::to_string(&set).unwrap();
@@ -61,24 +57,19 @@ fn cascade() {
             serde_json::from_str(&data).expect("Unable to read cached images")
         } else { println!("Training image data not found in cache"); return; }
     };
-
+    
     // Get all possible weak classifiers
-    println!("Creating a vector of all weak classifiers");
-    let now = Instant::now();
-    let wcs = WeakClassifier::get_all();
-    println!("Created vector of {} classifiers in {} seconds", 
-        wcs.len(), now.elapsed().as_secs());
+    let mut wcs = WeakClassifier::get_all();
+    println!("{:-^30}", " Getting Weak Classifiers ");
+    println!("Created vector of {} possible weak classifiers", wcs.len());
+    println!("{:-^30}", " Building Cascade ");
 
     // Build the cascade using the weak classifiers
-    println!("Building the cascade of strong classifiers");
-    let now = Instant::now();
     let cascade: Vec<_> = (1..=CASCADE_SIZE).map(|i| {
-        println!("#########################");
         println!("Building Strong Classifier {} of {}", i, CASCADE_SIZE);
-        println!("#########################");
         
         // Create a strong classifier
-        let sc = StrongClassifier::new(&wcs, &mut set, i);
+        let sc = StrongClassifier::new(&mut wcs, &mut set, i);
 
         // Save the strong classifier to cache
         let out_path = SC_PATH.to_owned() + &i.to_string() + ".json";
@@ -87,10 +78,9 @@ fn cascade() {
 
 
         // Remove the true negatives from the training set
-        set.retain(|data| data.is_face || sc.classify(&data.image));
+        set.retain(|data| data.is_face || sc.classify(&data.image, None));
         sc
     }).collect();
-    println!("Built cascade in {} seconds", now.elapsed().as_secs());
 
     // Output the data
     println!("Saving cascade to {}", CASCADE);
@@ -101,7 +91,7 @@ fn cascade() {
 /// Test a cascade over training images
 fn test() {
     // Get the cached cascade
-    let cascade: Vec<WeakClassifier> = {
+    let cascade: Vec<StrongClassifier> = {
         if Path::new(CASCADE).exists() {
             let data = std::fs::read_to_string(CASCADE).unwrap();
             serde_json::from_str(&data).expect("Unable to read cached cascade")
@@ -123,8 +113,8 @@ fn test() {
     let mut num_faces: f64 = 0.0;
     for data in &set {
         let mut eval = true;
-        for wc in &cascade {
-            if !wc.classify(&data.image, None) {eval = false; break;}
+        for sc in &cascade {
+            if !sc.classify(&data.image, None) {eval = false; break;}
         }
         if data.is_face {num_faces += 1.0;}
         if data.is_face && eval {correct_faces += 1.0;}
@@ -147,7 +137,7 @@ fn test() {
 /// Detects faces in an image
 fn detect(m: &clap::ArgMatches) {
     // Get the cached cascade
-    let cascade: Vec<WeakClassifier> = {
+    let cascade: Vec<StrongClassifier> = {
         if Path::new(CASCADE).exists() {
             let data = std::fs::read_to_string(CASCADE).unwrap();
             serde_json::from_str(&data).unwrap()
@@ -175,7 +165,7 @@ fn detect(m: &clap::ArgMatches) {
         'outer: for x in 0..(img_width - f*WL_32) {
             for y in 0..(img_height - f*WH_32) { 
                 let w = Rectangle::<u32>::new(x, y, f*WL_32, f*WH_32);
-                for wc in &cascade {if !wc.classify(&ii, Some(w)) {continue 'outer;}}
+                for sc in &cascade {if !sc.classify(&ii, Some(w)) {continue 'outer;}}
                 faces.push(w);
             }
         }

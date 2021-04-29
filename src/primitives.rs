@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use super::IntegralImage;
-use num::Unsigned;
+use num::{Unsigned, ToPrimitive};
 use std::cmp::Ordering;
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// The smallest unsigned integer primitive that can index into the Window
 pub type Window = Rectangle::<WindowSize>;
@@ -51,4 +52,15 @@ impl Ord for OrderedF64 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Equal)
     }
+}
+
+pub fn new_bar(size: impl ToPrimitive, prefix: &str) -> ProgressBar {
+        let bar = ProgressBar::new(size.to_u64().unwrap());
+        let template = "{prefix} {bar:40.blue/grey} \
+        {pos:>7}/{len:7} [{elapsed}]";
+
+        let style = ProgressStyle::default_bar().template(template);
+        bar.set_style(style);
+        bar.set_prefix(prefix);
+        bar
 }

@@ -1,7 +1,7 @@
 use super::{
     ImageData, WL, WH, Feature, 
     Rectangle, IntegralImage, Window,
-    OrderedF64
+    OrderedF64, new_bar
 };
 use serde::{Deserialize, Serialize};
 
@@ -64,6 +64,21 @@ pub struct WeakClassifier {
         }
         self.threshold = self.feature.evaluate(best_image, None);
     }
+    
+    pub fn calculate_thresholds(wcs: &mut[WeakClassifier], set: &mut[ImageData]) {
+        // Calculate the optimal thresholds for all weak classifiers
+        let afs = set.iter().filter(|data| data.is_face)
+            .map(|data| data.weight).sum();
+        let abg = set.iter().filter(|data| !data.is_face)
+            .map(|data| data.weight).sum(); 
+        let bar = new_bar(wcs.len() as u64, "Calculating Thresholds...");
+        for wc in wcs {
+            wc.calculate_threshold(set, afs, abg);
+            bar.inc(1);
+        };
+        bar.finish();
+    }
+
 
     /// Gets all possible weak classifiers
     pub fn get_all() -> Vec<WeakClassifier> {
@@ -143,6 +158,8 @@ pub struct WeakClassifier {
 
     // Gets the best weak classifier over a given training set
     pub fn get_best( wcs: &[WeakClassifier], set: &[ImageData]) -> WeakClassifier {
+
+        // Find the best weak classifier
         wcs.iter()
             .min_by_key(|wc| OrderedF64(wc.error(set)))
             .expect("wcs was empty")
