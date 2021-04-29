@@ -39,7 +39,10 @@ pub struct StrongClassifier {
             weights,
         }
     }
-    pub fn classify(&self, ii: &IntegralImage, w: Option<Rectangle<u32>>) -> bool {
+    pub fn classify(
+        &self, ii: &IntegralImage, 
+        w: Option<(Rectangle<u32>, u32)>
+    ) -> bool {
         self.wcs.iter().zip(self.weights.iter())
             .filter(|(wc, _)| wc.classify(ii, w))
             .map(|(_, weight)| weight)

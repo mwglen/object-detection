@@ -18,10 +18,23 @@ pub struct WeakClassifier {
             pos_polarity: false,
         }
     }
+
+    pub fn filter(
+        mut wcs: Vec<WeakClassifier>,
+        set: &mut[ImageData]
+    ) -> Vec<WeakClassifier> {
+        WeakClassifier::calculate_thresholds(&mut wcs, set);
+        wcs.sort_by_cached_key(|wc: &WeakClassifier| OrderedF64(wc.error(set)) );
+        println!("Sorted");
+        wcs.reverse();
+        println!("Reversed");
+        wcs.truncate(wcs.len()/10);
+        wcs
+    }
     /// Calculates the optimal threshold and polarity for the weak classifier
     pub fn calculate_threshold(
         &mut self, 
-        set: &mut [ImageData], 
+        set: &mut[ImageData], 
         afs: f64, abg: f64 
     ) {
         // Sort the training images based on it's evaluation
@@ -32,17 +45,17 @@ pub struct WeakClassifier {
         }); 
 
         // Set up variables used in the following loop
-        let mut cf: usize = 0; // Total number of face samples seen so far
-        let mut cg: usize = 0; // Total number of non-face samples seen so far
-        let mut fs: f64 = 0.0; // Sum of the weights of the face samples seen so far
-        let mut bg: f64 = 0.0; // Sum of the weights of background samples seen so far
+        let mut cf: usize = 0; // Total number of pos samples seen so far
+        let mut cg: usize = 0; // Total number of neg samples seen so far
+        let mut fs: f64 = 0.0; // Sum of the weights of the pos samples seen so far
+        let mut bg: f64 = 0.0; // Sum of the weights of neg samples seen so far
         let mut min_err: f64 = 1.0; // The minimum value of the error function
         let mut best_image = &set[0].image;
 
         for data in set.iter() {
 
             // Add the weight to fs/bg
-            if data.is_face {
+            if data.is_object {
                 fs += data.weight;
                 cf += 1; 
             } else {
@@ -67,9 +80,9 @@ pub struct WeakClassifier {
     
     pub fn calculate_thresholds(wcs: &mut[WeakClassifier], set: &mut[ImageData]) {
         // Calculate the optimal thresholds for all weak classifiers
-        let afs = set.iter().filter(|data| data.is_face)
+        let afs = set.iter().filter(|data| data.is_object)
             .map(|data| data.weight).sum();
-        let abg = set.iter().filter(|data| !data.is_face)
+        let abg = set.iter().filter(|data| !data.is_object)
             .map(|data| data.weight).sum(); 
         let bar = new_bar(wcs.len() as u64, "Calculating Thresholds...");
         for wc in wcs {
@@ -152,7 +165,7 @@ pub struct WeakClassifier {
     // Calculates the error of a wc over a given training set
     pub fn error(&self, set: &[ImageData]) -> f64 {
         set.iter()
-            .filter(|data| { data.is_face != self.classify(&data.image, None) })
+            .filter(|data| { data.is_object != self.classify(&data.image, None) })
             .map(|data| data.weight).sum::<f64>()
     }
 
@@ -174,11 +187,15 @@ pub struct WeakClassifier {
 
         // Update the weights:
         set.iter_mut().filter(|data| {
-            self.classify(&data.image, None) == data.is_face
+            self.classify(&data.image, None) == data.is_object
         }).for_each(|data| { data.weight *= beta_t; });
     }
     
-    pub fn classify(&self, ii: &IntegralImage, w: Option<Rectangle<u32>>) -> bool {
+    pub fn classify(
+        &self, 
+        ii: &IntegralImage, 
+        w: Option<(Rectangle<u32>, u32)>
+    ) -> bool {
         self.pos_polarity == (self.feature.evaluate(ii, w) < self.threshold)
     }
 }

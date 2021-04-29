@@ -9,9 +9,9 @@ pub type Window = Rectangle::<WindowSize>;
 pub type WindowSize = u8;
 
 /// The relative size of sweeping window used in image detection
-pub const WS: WindowSize = 2;
-pub const WL: WindowSize = WS * 7;
-pub const WH: WindowSize = WS * 8;
+pub const WS: WindowSize = 19;
+pub const WL: WindowSize = WS;
+pub const WH: WindowSize = WS;
 pub const WL_32: u32 = WL as u32;
 pub const WH_32: u32 = WH as u32;
 pub const WL_: usize = WL as usize;
@@ -37,7 +37,10 @@ pub struct Feature {
     pub white: (Window, Option<Window>),
 } impl Feature {
     /// Evaluates a feature over a window of an integral image
-    pub fn evaluate(&self, ii: &IntegralImage, w: Option<Rectangle<u32>>) -> i64 {
+    pub fn evaluate(
+        &self, ii: &IntegralImage, 
+        w: Option<(Rectangle<u32>, u32)>
+    ) -> i64 {
         ii.rect_sum(&self.black.0, w)
             + self.black.1.map_or(0, |r| ii.rect_sum(&r, w))
             - ii.rect_sum(&self.white.0, w)
