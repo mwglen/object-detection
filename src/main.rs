@@ -8,18 +8,16 @@ pub use weak_classifier::WeakClassifier;
 pub use strong_classifier::StrongClassifier;
 
 use clap::{load_yaml, App, AppSettings};
-use std::fs;
 use std::path::Path;
+use std::fs;
 use image::io::Reader as ImageReader;
 
 const FACES_DIR: &str = "images/faces";
 const NOT_FACES_DIR: &str = "images/not_faces";
 const CACHED_IMAGES: &str = "cache/images.json";
 const CASCADE: &str = "cache/cascade.json";
-const SC_PATH: &str = "cache/strong";
-const WC_PATH: &str = "cache/weak";
-const SC_SIZE: usize = 1;
-const CASCADE_SIZE: usize = 1;
+const SC_SIZE: usize = 2;
+const CASCADE_SIZE: usize = 2;
 
 fn main() {
     // Parse the cli arguments using clap
@@ -69,13 +67,7 @@ fn cascade() {
         println!("Building Strong Classifier {} of {}", i, CASCADE_SIZE);
         
         // Create a strong classifier
-        let sc = StrongClassifier::new(&mut wcs, &mut set, i);
-
-        // Save the strong classifier to cache
-        let out_path = SC_PATH.to_owned() + &i.to_string() + ".json";
-        let data = serde_json::to_string(&wcs).unwrap();
-        fs::write(out_path, &data).expect("Unable to cache strong classifier");
-
+        let sc = StrongClassifier::new(&mut wcs, &mut set);
 
         // Remove the true negatives from the training set
         set.retain(|data| data.is_face || sc.classify(&data.image, None));
@@ -84,7 +76,7 @@ fn cascade() {
 
     // Output the data
     println!("Saving cascade to {}", CASCADE);
-    let data = serde_json::to_string(&cascade).unwrap();
+    let data = serde_json::to_string_pretty(&cascade).unwrap();
     fs::write(CASCADE, &data).expect("Unable to write to file");
 }
 
@@ -162,14 +154,16 @@ fn detect(m: &clap::ArgMatches) {
     // in size. Testing all combinations of rectangles in the images for a face
     let max_f = (img_width/WL_32).min(img_height/WH_32);
     for f in 1..max_f {
-        'outer: for x in 0..(img_width - f*WL_32) {
+        for x in 0..(img_width - f*WL_32) {
             for y in 0..(img_height - f*WH_32) { 
                 let w = Rectangle::<u32>::new(x, y, f*WL_32, f*WH_32);
-                for sc in &cascade {if !sc.classify(&ii, Some(w)) {continue 'outer;}}
-                faces.push(w);
+                if cascade.iter().all(|sc| sc.classify(&ii, Some(w))) {
+                    faces.push(w);
+                }
             }
         }
     }
+    println!("Found {} faces", faces.len());
 
     // Output detected faces
     let data = serde_json::to_string_pretty(&faces).unwrap();

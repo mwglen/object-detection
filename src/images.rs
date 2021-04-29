@@ -38,10 +38,10 @@ pub struct IntegralImage {
         let mut ybr = usize::from(r.bot_right[1]);
        
         if let Some(w) = w {
-            xtl = w.top_left[0] as usize;
-            ytl = w.top_left[1] as usize;
-            xbr = w.top_left[0] as usize;
-            ybr = w.top_left[1] as usize;
+            xtl += w.top_left[0] as usize;
+            ytl += w.top_left[1] as usize;
+            xbr += w.top_left[0] as usize;
+            ybr += w.top_left[1] as usize;
         }
 
         self.pixels[xbr + self.width*ybr] as i64
