@@ -35,24 +35,20 @@ fn main() {
 fn process_images() {
     // Find and process images
     println!("Training Image:");
-    let train_set = ImageData::from_dirs(TRAIN_OBJECT_DIR, TRAIN_OTHER_DIR);
-
-    println!("Testing Image:");
-    let test_set = ImageData::from_dirs(TEST_OBJECT_DIR, TEST_OTHER_DIR);
+    let set = ImageData::from_dirs(OBJECT_DIR, OTHER_DIR, SLICE_DIR, NUM_NEG);
+    println!("Processed {} images.", set.len());
 
     // Save image data to cache
-    let train_data = serde_json::to_string(&train_set).unwrap();
-    let test_data = serde_json::to_string(&test_set).unwrap();
-    fs::write(CACHED_TRAIN_IMAGES, &train_data).expect("Unable to write to file");
-    fs::write(CACHED_TEST_IMAGES, &test_data).expect("Unable to write to file");
+    let data = serde_json::to_string(&set).unwrap();
+    fs::write(CACHED_IMAGES, &data).expect("Unable to cache images");
 }
 
 /// Builds the cascade
 fn cascade() {
     // Get training images from cache or process raw images if cache is empty
     let mut set: Vec<ImageData> = {
-        if Path::new(CACHED_TRAIN_IMAGES).exists() {
-            let data = std::fs::read_to_string(CACHED_TRAIN_IMAGES).unwrap();
+        if Path::new(CACHED_IMAGES).exists() {
+            let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
             serde_json::from_str(&data).expect("Unable to read cached images")
         } else {
             println!("Training image data not found in cache");
@@ -70,7 +66,7 @@ fn cascade() {
     println!("{:-^30}", " Building Cascade ");
 
     // Build the cascade using the weak classifiers
-    let layout: Vec<usize> = vec![1, 5, 10];
+    let layout: Vec<usize> = vec![1, 5, 10, 50];
     let cascade = cascade_from_layout(&layout, &mut wcs, &mut set);
 
     // Output the data
@@ -88,7 +84,7 @@ fn cascade_from_layout(
     let cascade_size = layout.len();
     let mut cascade = Vec::<StrongClassifier>::with_capacity(cascade_size);
     for (i, &size) in layout.iter().enumerate() {
-        println!("Building Strong Classifier {} of {}", i, cascade_size);
+        println!("Building Strong Classifier {} of {}", i+1, cascade_size);
 
         // Create a strong classifier
         let sc = StrongClassifier::new(wcs, set, size);
@@ -140,31 +136,16 @@ fn test() {
 
     // Get processed training images from cache
     let train_set: Vec<ImageData> = {
-        if Path::new(CACHED_TRAIN_IMAGES).exists() {
-            let data = std::fs::read_to_string(CACHED_TRAIN_IMAGES).unwrap();
+        if Path::new(CACHED_IMAGES).exists() {
+            let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
             serde_json::from_str(&data).expect("Unable to read cached image data")
         } else {
             println!("Testing image data not found in cache");
             return;
         }
     };
-
-    println!("Training_Set");
+    
     test_images(&train_set, &cascade);
-
-    // Get processed training images from cache
-    let test_set: Vec<ImageData> = {
-        if Path::new(CACHED_TEST_IMAGES).exists() {
-            let data = std::fs::read_to_string(CACHED_TEST_IMAGES).unwrap();
-            serde_json::from_str(&data).expect("Unable to read cached image data")
-        } else {
-            println!("Testing image data not found in cache");
-            return;
-        }
-    };
-
-    println!("Testing_Set");
-    test_images(&test_set, &cascade);
 }
 
 fn test_images(set: &Vec<ImageData>, cascade: &Vec<StrongClassifier>) {
@@ -211,7 +192,9 @@ fn test_images(set: &Vec<ImageData>, cascade: &Vec<StrongClassifier>) {
     );
 }
 
-/// Detects the object in an image
+/// This detects objects by sending a "windowed" view into the image to
+/// be evaluated by the cascade. The window moves across the image and grows
+/// in size. This tests all rectangles in the images for the object
 fn detect(m: &clap::ArgMatches) {
     // Get the cached cascade
     let cascade: Vec<StrongClassifier> = {
@@ -246,18 +229,20 @@ fn detect(m: &clap::ArgMatches) {
     // Vector to hold detected objects
     let mut objects = Vec::<Rectangle<u32>>::new();
 
-    // This detects objects by sending a "windowed" view into the image to
-    // be evaluated by the cascade. The window moves across the image and grows
-    // in size. Testing all combinations of rectangles in the images for the
-    // object
-    let max_f = (img_width / WL_32).min(img_height / WH_32);
-    println!("{}", max_f);
-    for f in 1..max_f {
-        for x in 0..(img_width - f * WL_32) {
-            for y in 0..(img_height - f * WH_32) {
-                let w = Rectangle::<u32>::new(x, y, f * WL_32, f * WH_32);
-                if cascade.iter().all(|sc| sc.classify(&ii, Some((w, f)))) {
-                    objects.push(w);
+    let max_width = if (img_width / WL_32) < (img_height / WH_32) {
+        img_width
+    } else {
+        img_height * WL_32 / WH_32
+    };
+    let step_size = (f64::from(WL) / 5.0).round() as usize;
+    for curr_width in (WL_32..=max_width).step_by(step_size) {
+        let curr_height = curr_width * WH_32 / WL_32;
+        let f = f64::from(curr_width) / f64::from(WL_32);
+        for x in 0..(img_width - curr_width) {
+            for y in 0..(img_height - curr_height) {
+                let r = Rectangle::<u32>::new(x, y, curr_width, curr_height);
+                if cascade.iter().all(|sc| sc.classify(&ii, Some((r, f)))) {
+                    objects.push(r);
                 }
             }
         }

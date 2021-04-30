@@ -13,3 +13,5 @@ image = "0.23.14"
 clap = {version = "2.33.3", features = ["yaml"]}
 indicatif = "0.15.0"
 num = "0.4.0"
+rand = "0.8.3"
+rayon = "1.5.0"

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+use rayon::prelude::*;
 use super::{
     new_bar, Feature, ImageData, IntegralImage, OrderedF64, Rectangle, Window, WH,
     WL,
@@ -36,12 +36,13 @@ impl WeakClassifier {
     /// Calculates the optimal threshold and polarity for the weak classifier
     pub fn calculate_threshold(
         &mut self,
-        set: &mut [ImageData],
+        set: &[ImageData],
         afs: f64,
         abg: f64,
     ) {
         // Sort the training images based on it's evaluation
-        set.sort_unstable_by(|a: &ImageData, b: &ImageData| {
+        let mut sorted: Vec<_> = set.iter().collect();
+        sorted.sort_unstable_by(|a: &&ImageData, b: &&ImageData| {
             let a_eval = self.feature.evaluate(&a.image, None);
             let b_eval = self.feature.evaluate(&b.image, None);
             a_eval.cmp(&b_eval)
@@ -79,7 +80,9 @@ impl WeakClassifier {
         self.threshold = self.feature.evaluate(best_image, None);
     }
 
-    pub fn calculate_thresholds(wcs: &mut [WeakClassifier], set: &mut [ImageData]) {
+    /// Calculate the optimal thresholds for a slice of weak classifiers.
+    /// Calls calculate_threshold() on multiple threads
+    pub fn calculate_thresholds(wcs: &mut[WeakClassifier], set: &[ImageData]) {
         // Calculate the optimal thresholds for all weak classifiers
         let afs = set
             .iter()
@@ -92,10 +95,10 @@ impl WeakClassifier {
             .map(|data| data.weight)
             .sum();
         let bar = new_bar(wcs.len() as u64, "Calculating Thresholds...");
-        for wc in wcs {
+        wcs.par_iter_mut().for_each(|wc| {
             wc.calculate_threshold(set, afs, abg);
             bar.inc(1);
-        }
+        });
         bar.finish();
     }
 
@@ -187,7 +190,7 @@ impl WeakClassifier {
 
     // Updates the weights of the images based off of the error of the
     // self over the images
-    pub fn update_weights(&self, set: &mut [ImageData]) -> f64 {
+    pub fn update_weights(&self, set: &mut[ImageData]) -> f64 {
         let err = self.error(set);
         let beta_t = err / (1.0 - err);
 
@@ -203,7 +206,7 @@ impl WeakClassifier {
     pub fn classify(
         &self,
         ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, u32)>,
+        w: Option<(Rectangle<u32>, f64)>,
     ) -> bool {
         self.pos_polarity == (self.feature.evaluate(ii, w) < self.threshold)
     }

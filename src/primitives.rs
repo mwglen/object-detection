@@ -33,7 +33,7 @@ impl Feature {
     pub fn evaluate(
         &self,
         ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, u32)>,
+        w: Option<(Rectangle<u32>, f64)>,
     ) -> i64 {
         ii.rect_sum(&self.black.0, w)
             + self.black.1.map_or(0, |r| ii.rect_sum(&r, w))

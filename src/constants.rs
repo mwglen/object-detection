@@ -1,29 +1,26 @@
 pub type WindowSize = u8;
 
-pub const WS: WindowSize = 19;
-pub const WL: WindowSize = WS;
-pub const WH: WindowSize = WS;
+pub const WS: WindowSize = 4;
+pub const WL: WindowSize = WS * 7;
+pub const WH: WindowSize = WS * 8;
 pub const WL_32: u32 = WL as u32;
 pub const WH_32: u32 = WH as u32;
 
+// The number of negative training images to start with
+pub const NUM_NEG: usize = 5000;
+
 // CONSTANTS HOLDING PATHS/DIRECTORIES
-/// Path to cached training images
-pub const TRAIN_OBJECT_DIR: &str = "images/training/object";
+/// Path to images of the object
+pub const OBJECT_DIR: &str = "images/training/object";
+
+/// Path to images that are not of object
+pub const OTHER_DIR: &str = "images/training/other";
+
+/// Path to images not containing object to slice
+pub const SLICE_DIR: &str = "images/training/to_slice";
 
 /// Path to cached training images
-pub const TRAIN_OTHER_DIR: &str = "images/training/other";
-
-/// Path to cached training images
-pub const TEST_OBJECT_DIR: &str = "images/testing/object";
-
-/// Path to cached training images
-pub const TEST_OTHER_DIR: &str = "images/testing/other";
-
-/// Path to cached training images
-pub const CACHED_TRAIN_IMAGES: &str = "cache/train_images.json";
-
-/// Path to cached test images
-pub const CACHED_TEST_IMAGES: &str = "cache/test_images.json";
+pub const CACHED_IMAGES: &str = "cache/images.json";
 
 // CONSTANTS USED IN BUILDING THE CASCADE
 /// Path to output the cascade

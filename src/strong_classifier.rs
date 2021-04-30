@@ -15,8 +15,11 @@ impl StrongClassifier {
         set: &mut [ImageData],
         size: usize,
     ) -> StrongClassifier {
-        let (wcs, weights) = (1..=2u64.pow(size as u32))
+        let (wcs, weights) = (1..=size)
             .map(|i| {
+                // Normalize weights
+                ImageData::normalize_weights(set);
+
                 // Calculate Thresholds
                 WeakClassifier::calculate_thresholds(wcs, set);
 
@@ -24,7 +27,7 @@ impl StrongClassifier {
                 println!(
                     "Choosing Weak Classifier {} of {}",
                     i,
-                    2u64.pow(size as u32)
+                    size,
                 );
                 let wc = WeakClassifier::get_best(&wcs, set);
 
@@ -41,7 +44,7 @@ impl StrongClassifier {
     pub fn classify(
         &self,
         ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, u32)>,
+        w: Option<(Rectangle<u32>, f64)>,
     ) -> bool {
         self.wcs
             .iter()
