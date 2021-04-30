@@ -1,0 +1,16 @@
+max_width = 85
+where_single_line = true
+wrap_comments = true
+use_small_heuristics = "Default"
+fn_single_line = true
+match_arm_blocks = false
+match_block_trailing_comma = true
+newline_style = "Unix"
+normalize_comments = true
+normalize_doc_attributes = true
+overflow_delimited_expr = true
+reorder_impl_items = true
+group_imports = "StdExternalCrate"
+use_field_init_shorthand = true
+use_try_shorthand = true
+version = "Two"

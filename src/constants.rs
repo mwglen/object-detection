@@ -31,11 +31,12 @@ pub const CACHED_TEST_IMAGES: &str = "cache/test_images.json";
 /// Path to output the cascade
 pub const CASCADE: &str = "cache/cascade.json";
 
-/// The number of strong classifiers in the cascade (used when building from layout)
+/// The number of strong classifiers in the cascade (used when building from
+/// layout)
 pub const CASCADE_SIZE: usize = 4;
 
 /// Maximum acceptable false positive rate per layer
 pub const MAX_FALSE_POS: f64 = 0.5;
 
 /// Target overall false positive rate
-pub const TARGET_FALSE_POS: f64 = 0.5; 
+pub const TARGET_FALSE_POS: f64 = 0.5;
