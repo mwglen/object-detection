@@ -5,8 +5,6 @@ pub const WL: WindowSize = WS;
 pub const WH: WindowSize = WS;
 pub const WL_32: u32 = WL as u32;
 pub const WH_32: u32 = WH as u32;
-pub const WL_: usize = WL as usize;
-pub const WH_: usize = WH as usize;
 
 // CONSTANTS HOLDING PATHS/DIRECTORIES
 /// Path to cached training images

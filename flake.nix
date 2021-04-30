@@ -6,13 +6,10 @@
       };
   in {
     devShell.x86_64-linux = pkgs.mkShell {
-      buildInputs = with pkgs; with python38Packages;
+      buildInputs = with pkgs;
       [
         # Rust Dependencies
         cargo rustfmt clippy 
-
-        # Python Dependencies
-        python38 scrapy
       ];
     };
   };
