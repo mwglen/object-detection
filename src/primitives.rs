@@ -1,22 +1,11 @@
 use serde::{Deserialize, Serialize};
-use super::IntegralImage;
+use super::{IntegralImage, WindowSize};
 use num::{Unsigned, ToPrimitive};
 use std::cmp::Ordering;
 use indicatif::{ProgressBar, ProgressStyle};
 
 /// The smallest unsigned integer primitive that can index into the Window
 pub type Window = Rectangle::<WindowSize>;
-pub type WindowSize = u8;
-
-/// The relative size of sweeping window used in image detection
-pub const WS: WindowSize = 19;
-pub const WL: WindowSize = WS;
-pub const WH: WindowSize = WS;
-pub const WL_32: u32 = WL as u32;
-pub const WH_32: u32 = WH as u32;
-pub const WL_: usize = WL as usize;
-pub const WH_: usize = WH as usize;
-
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Rectangle<T: Unsigned + Copy> {

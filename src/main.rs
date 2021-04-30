@@ -2,7 +2,9 @@ mod weak_classifier;
 mod strong_classifier;
 mod primitives;
 mod images;
+mod constants;
 pub use primitives::*;
+pub use constants::*;
 pub use images::{IntegralImage, ImageData, draw_rectangle};
 pub use weak_classifier::WeakClassifier;
 pub use strong_classifier::StrongClassifier;
@@ -11,16 +13,6 @@ use clap::{load_yaml, App, AppSettings};
 use std::path::Path;
 use std::fs;
 use image::io::Reader as ImageReader;
-
-const TRAIN_OBJECT_DIR: &str = "images/training/object";
-const TRAIN_OTHER_DIR: &str = "images/training/other";
-const TEST_OBJECT_DIR: &str = "images/testing/object";
-const TEST_OTHER_DIR: &str = "images/testing/other";
-const CACHED_TRAIN_IMAGES: &str = "cache/train_images.json";
-const CACHED_TEST_IMAGES: &str = "cache/test_images.json";
-const CASCADE: &str = "cache/cascade.json";
-const SC_SIZE: usize = 10;
-const CASCADE_SIZE: usize = 1;
 
 fn main() {
     // Parse the cli arguments using clap
@@ -75,22 +67,58 @@ fn cascade() {
     println!("{:-^30}", " Building Cascade ");
 
     // Build the cascade using the weak classifiers
-    let cascade: Vec<_> = (1..=CASCADE_SIZE).map(|i| {
-        println!("Building Strong Classifier {} of {}", i, CASCADE_SIZE);
-        
-        // Create a strong classifier
-        let sc = StrongClassifier::new(&mut wcs, &mut set);
-
-        // Remove the true negatives from the training set
-        set.retain(|data| data.is_object || sc.classify(&data.image, None));
-        sc
-    }).collect();
+    let layout: Vec<usize> = vec![1, 5, 10];
+    let cascade = cascade_from_layout(&layout, &mut wcs, &mut set);
 
     // Output the data
     println!("Saving cascade to {}", CASCADE);
     let data = serde_json::to_string_pretty(&cascade).unwrap();
     fs::write(CASCADE, &data).expect("Unable to write to file");
 }
+
+fn cascade_from_layout(
+    layout: &Vec<usize>, wcs: &mut Vec<WeakClassifier>, set: &mut Vec<ImageData>
+) -> Vec<StrongClassifier> {
+    // Build the cascade using the weak classifiers
+    let cascade_size = layout.len();
+    let mut cascade = Vec::<StrongClassifier>::with_capacity(cascade_size);
+    for (i, &size) in layout.iter().enumerate() {
+        println!("Building Strong Classifier {} of {}", i, cascade_size);
+        
+        // Create a strong classifier
+        let sc = StrongClassifier::new(wcs, set, size);
+
+        // Remove the true negatives from the training set
+        set.retain(|data| data.is_object || sc.classify(&data.image, None));
+        cascade.push(sc);
+    }
+    cascade
+}
+
+// fn cascade_from_false_pos(
+//     target_rate: usize, 
+//     wcs: &Vec<WeakClassifier>, 
+//     set: &Vec<ImageData>,
+//     max_rate: usize,
+// ) -> Vec<StrongClassifier> {
+//     let f: f64 = 1.0;
+//     let mut i = 0;
+//     while f > TARGET_FALSE_POS {
+//         i++;
+//         let mut n_i = 0;
+//         let prev_f = f
+//         while f > (MAX_FALSE_POS * prev_f) {
+//             n_i++;
+//             // Create a strong classifier
+//             let sc = StrongClassifier::new(&mut wcs, &mut set, n_i);
+//             let f_i =;
+//             let d_i =;
+
+//         }
+//         // Remove the true negatives
+//         set.retain(|data| data.is_object || sc.classify(&data.image, None));
+//     }
+// }
 
 /// Test a cascade over training images
 fn test() {
@@ -103,21 +131,38 @@ fn test() {
     };
 
     // Get processed training images from cache
-    let set: Vec<ImageData> = {
+    let train_set: Vec<ImageData> = {
+        if Path::new(CACHED_TRAIN_IMAGES).exists() {
+            let data = std::fs::read_to_string(CACHED_TRAIN_IMAGES).unwrap();
+            serde_json::from_str(&data).expect("Unable to read cached image data")
+        } else { println!("Testing image data not found in cache"); return; }
+    };
+    
+
+    println!("Training_Set");
+    test_images(&train_set, &cascade);
+    
+    // Get processed training images from cache
+    let test_set: Vec<ImageData> = {
         if Path::new(CACHED_TEST_IMAGES).exists() {
             let data = std::fs::read_to_string(CACHED_TEST_IMAGES).unwrap();
             serde_json::from_str(&data).expect("Unable to read cached image data")
         } else { println!("Testing image data not found in cache"); return; }
     };
+    
+    println!("Testing_Set");
+    test_images(&test_set, &cascade);
+}
 
+fn test_images(set: &Vec<ImageData>, cascade: &Vec<StrongClassifier>) {
     // Test the cascade over training images
     println!("Testing the Cascade");
     let mut correct_objects: f64 = 0.0;
     let mut correct_others: f64 = 0.0;
     let mut num_objects: f64 = 0.0;
-    for data in &set {
+    for data in set {
         let mut eval = true;
-        for sc in &cascade {
+        for sc in cascade {
             if !sc.classify(&data.image, None) {eval = false; break;}
         }
         if data.is_object {num_objects += 1.0;}

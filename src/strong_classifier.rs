@@ -1,5 +1,4 @@
-use super::{WeakClassifier, ImageData, 
-    SC_SIZE, IntegralImage, Rectangle};
+use super::{WeakClassifier, ImageData, IntegralImage, Rectangle};
 use serde::{Deserialize, Serialize};
 
 /// A strong classifier (made up of weighted weak classifiers)
@@ -13,25 +12,20 @@ pub struct StrongClassifier {
     pub fn new(
         wcs: &mut [WeakClassifier],
         set: &mut [ImageData],
+        size: usize,
     ) -> StrongClassifier {
-        let wcs: Vec<_> = (1..=SC_SIZE).map(|i| {
+        let (wcs, weights) = (1..=2u64.pow(size as u32)).map(|i| {
             // Calculate Thresholds
             WeakClassifier::calculate_thresholds(wcs, set);
             
             // Get the best weak classifier
-            println!("Choosing Weak Classifier {} of {}", i, SC_SIZE);
+            println!("Choosing Weak Classifier {} of {}", i, 2u64.pow(size as u32));
             let wc = WeakClassifier::get_best(&wcs, set);
             
             // Update the weights
-            wc.update_weights(set);
-            
-            wc
-        }).collect();
-
-        // Calculate the weights of each weak classifier in the strong classifier
-        let weights = wcs.iter().map(|wc| wc.error(set))
-            .map(|err| err / (1.0 - err))
-            .map(|beta| f64::ln(1.0/beta)).collect();
+            let weight = wc.update_weights(set);
+            (wc, weight)
+        }).unzip();
 
         // Build and return the strong classifier
         StrongClassifier {

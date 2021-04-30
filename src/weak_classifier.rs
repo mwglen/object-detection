@@ -181,7 +181,7 @@ pub struct WeakClassifier {
 
     // Updates the weights of the images based off of the error of the 
     // self over the images
-    pub fn update_weights(&self, set: &mut [ImageData]) {
+    pub fn update_weights(&self, set: &mut [ImageData]) -> f64 {
         let err = self.error(set);
         let beta_t = err / (1.0 - err);
 
@@ -189,6 +189,7 @@ pub struct WeakClassifier {
         set.iter_mut().filter(|data| {
             self.classify(&data.image, None) == data.is_object
         }).for_each(|data| { data.weight *= beta_t; });
+        f64::ln(1.0/beta_t)
     }
     
     pub fn classify(
