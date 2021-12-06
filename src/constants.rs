@@ -22,10 +22,10 @@ pub const SLICE_DIR: &str = "images/training/to_slice";
 /// Path to cached training images
 pub const CACHED_IMAGES: &str = "cache/images.json";
 
-// CONSTANTS USED IN BUILDING THE CASCADE
 /// Path to output the cascade
 pub const CASCADE: &str = "cache/cascade.json";
 
+// CONSTANTS USED IN BUILDING THE CASCADE
 /// The number of strong classifiers in the cascade (used when building from
 /// layout)
 pub const CASCADE_SIZE: usize = 4;
