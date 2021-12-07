@@ -2,8 +2,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    new_bar, Feature, ImageData, IntegralImage, OrderedF64,
-    Rectangle, Window, WH, WL, PERCENTAGE_TO_FILTER
+    new_bar, Feature, ImageData, ImageTrait, OrderedF64,
+    Window, WH, WL, PERCENTAGE_TO_FILTER, Classifier,
 };
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -52,8 +52,8 @@ impl WeakClassifier {
         // Sort the training images based on it's evaluation
         let mut sorted: Vec<_> = set.iter().collect();
         sorted.sort_unstable_by(|a: &&ImageData, b: &&ImageData| {
-            let a_eval = self.feature.evaluate(&a.image, None);
-            let b_eval = self.feature.evaluate(&b.image, None);
+            let a_eval = self.feature.evaluate(&a.image);
+            let b_eval = self.feature.evaluate(&b.image);
             a_eval.cmp(&b_eval)
         });
 
@@ -86,7 +86,7 @@ impl WeakClassifier {
                 self.pos_polarity = cf > cg;
             }
         }
-        self.threshold = self.feature.evaluate(best_image, None);
+        self.threshold = self.feature.evaluate(best_image);
     }
 
     /// Calculate the optimal thresholds for a slice of weak
@@ -210,7 +210,7 @@ impl WeakClassifier {
     pub fn error(&self, set: &[ImageData]) -> f64 {
         set.iter()
             .filter(|data| {
-                data.is_object != self.classify(&data.image, None)
+                data.is_object != self.classify(&data.image)
             })
             .map(|data| data.weight)
             .sum::<f64>()
@@ -237,22 +237,13 @@ impl WeakClassifier {
 
         // Update the weights
         set.iter_mut()
-            .filter(|data| {
-                self.classify(&data.image, None) == data.is_object
-            })
-            .for_each(|data| {
-                data.weight *= beta_t;
-            });
+            .filter(|data| self.classify(&data.image) == data.is_object)
+            .for_each(|data| {data.weight *= beta_t;});
         f64::ln(1.0 / beta_t)
     }
 
-    /// Classifies an image
-    pub fn classify(
-        &self,
-        ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, f64)>,
-    ) -> bool {
-        self.pos_polarity
-            == (self.feature.evaluate(ii, w) < self.threshold)
+} impl Classifier for WeakClassifier {
+    fn classify(&self, img: &impl ImageTrait) -> bool {
+        self.pos_polarity == (self.feature.evaluate(img) < self.threshold)
     }
 }

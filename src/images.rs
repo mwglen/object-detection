@@ -8,6 +8,12 @@ use image::{
 use serde::{Deserialize, Serialize};
 use super::{new_bar, Rectangle, Window, WH_32, WL_32};
 
+pub trait ImageTrait {
+    /// Gets the sum of pixels in a rectangular region of the original 
+    /// image using the images corresponding integral image
+    fn rect_sum(&self, r: &Window) -> i64;
+} 
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct IntegralImage {
     pixels: Vec<u64>,
@@ -36,11 +42,7 @@ impl IntegralImage {
                 pixels.push(pixel);
             }
         }
-        IntegralImage {
-            pixels,
-            width: w,
-            height: h,
-        }
+        IntegralImage { pixels, width: w, height: h }
     }
     
     pub fn from_slice_dir(slice_dir: &str) -> Vec<IntegralImage> {
@@ -66,30 +68,41 @@ impl IntegralImage {
         sliced
     }
 
-    /// Gets the sum of pixels in a rectangular region of the original image
-    /// using the images corresponding integral image
-    pub fn rect_sum(&self, r: &Window, w: Option<(Rectangle<u32>, f64)>) -> i64 {
-        let mut xtl = usize::from(r.top_left[0]);
-        let mut ytl = usize::from(r.top_left[1]);
-        let mut xbr = usize::from(r.bot_right[0]);
-        let mut ybr = usize::from(r.bot_right[1]);
+} impl ImageTrait for IntegralImage {
+    fn rect_sum(&self, r: &Window) -> i64 {
+        let xtl = usize::from(r.top_left[0]);
+        let ytl = usize::from(r.top_left[1]);
+        let xbr = usize::from(r.bot_right[0]);
+        let ybr = usize::from(r.bot_right[1]);
 
-        if let Some(w) = w {
-            xtl += w.0.top_left[0] as usize;
-            ytl += w.0.top_left[1] as usize;
-            xbr += w.0.top_left[0] as usize;
-            ybr += w.0.top_left[1] as usize;
-        }
-
-        let f = w.map(|v| v.1 as i64).unwrap_or(1);
-
-        (self.pixels[xbr + self.width * ybr] as i64
+        self.pixels[xbr + self.width * ybr] as i64
             - self.pixels[xbr + self.width * ytl] as i64
             - self.pixels[xtl + self.width * ybr] as i64
-            + self.pixels[xtl + self.width * ytl] as i64)
+            + self.pixels[xtl + self.width * ytl] as i64
+    }
+}
+
+pub struct WindowedIntegralImage<'a> {
+    pub ii: &'a IntegralImage,
+    pub x_offset: usize,
+    pub y_offset: usize,
+    pub f: u64,
+} impl<'a> ImageTrait for WindowedIntegralImage<'_> {
+    fn rect_sum(&self, r: &Window) -> i64 {
+        let xtl = usize::from(r.top_left[0]) + self.x_offset;
+        let ytl = usize::from(r.top_left[1]) + self.y_offset;
+        let xbr = usize::from(r.bot_right[0]) + self.x_offset;
+        let ybr = usize::from(r.bot_right[1]) + self.y_offset;
+        let f = self.f as i64;
+
+        (self.ii.pixels[xbr + self.ii.width * ybr] as i64
+            - self.ii.pixels[xbr + self.ii.width * ytl] as i64
+            - self.ii.pixels[xtl + self.ii.width * ybr] as i64
+            + self.ii.pixels[xtl + self.ii.width * ytl] as i64)
             / (f * f)
     }
 }
+
 
 /// A struct-of-arrays representing all of the training images
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -97,8 +110,7 @@ pub struct ImageData {
     pub image: IntegralImage,
     pub weight: f64,
     pub is_object: bool,
-}
-impl ImageData {
+} impl ImageData {
 
     /// Create image data from a directories
     pub fn from_dirs(

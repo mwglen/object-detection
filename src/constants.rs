@@ -32,8 +32,14 @@ pub const CASCADE_SIZE: usize = 4;
 /// Maximum acceptable false positive rate per layer
 pub const MAX_FALSE_POS: f64 = 0.5;
 
-/// Target overall false positive rate
-pub const TARGET_FALSE_POS: f64 = 0.5;
+/// Target false positive rate for entire cascade
+pub const TARGET_FALSE_POS: f64 = 0.001;
+
+/// Sets whether or not to use a layout when building the cascade
+pub const USE_LAYOUT: bool = false;
+
+/// Determines the layout to use when building the cascade
+pub const LAYOUT: [usize; CASCADE_SIZE] = [1, 5, 15, 30];
 
 // CONSTANTS FOR FILTERING WEAK CLASSIFIERS
 /// Sets whether or not to filter out underperforming weak

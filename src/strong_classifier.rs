@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use super::{
     ImageData, 
-    IntegralImage, 
-    Rectangle, 
-    WeakClassifier
+    WeakClassifier,
+    Classifier,
+    MAX_FALSE_POS,
+    ImageTrait,
 };
 
 /// A strong classifier (made up of weighted weak classifiers)
@@ -15,46 +16,60 @@ pub struct StrongClassifier {
 
     /// Builds a strong classifier out of weak classifiers
     /// from a list of potential weak classifiers
-    pub fn new(
-        wcs: &mut [WeakClassifier],
+    pub fn build(
+        all_wcs: &mut [WeakClassifier],
         set: &mut [ImageData],
-        num_wcs: usize,
+        num_wcs: Option<usize>,
     ) -> StrongClassifier {
-        let (wcs, weights) = (1..=num_wcs)
-            .map(|i| {
-                // Normalize weights
-                ImageData::normalize_weights(set);
 
-                // Calculate Thresholds
-                WeakClassifier::calculate_thresholds(wcs, set);
+        let mut wcs = Vec::<WeakClassifier>::new();
+        let mut weights = Vec::<f64>::new();
 
-                // Get the best weak classifier
-                println!(
-                    "Choosing Weak Classifier {} of {}",
-                    i, num_wcs,
-                );
-                let wc = WeakClassifier::get_best(&wcs, set);
+        let mut false_pos = 0.0;
+        let mut i = 1;
+        loop {
+            // Normalize weights
+            ImageData::normalize_weights(set);
 
-                // Update the weights
-                let weight = wc.update_weights(set);
-                (wc, weight)
-            })
-            .unzip();
+            // Calculate Thresholds
+            WeakClassifier::calculate_thresholds(all_wcs, set);
+
+            // Tell user that we are finding new weak classifier
+            println!(
+                "Choosing Weak Classifier {}{}{}", 
+                i.to_string(),
+                num_wcs.map_or("", |_| " of "),
+                num_wcs.map_or("".to_owned(), |n| n.to_string()),
+            );
+            
+            // Get the best weak classifier
+            let wc = WeakClassifier::get_best(&all_wcs, set);
+
+            // Update the weights
+            weights.push(wc.update_weights(set));
+            wcs.push(wc);
+            
+            // Print informattion about current cascade
+            println!("Current False Positive Rate: {}", 
+                false_pos);
+
+            // Determine whether or not to break
+            let should_break = num_wcs.map_or_else(
+                || false_pos <= MAX_FALSE_POS, |n| i == n);
+            if should_break { break }
+
+            i+=1;
+        }
 
         // Build and return the strong classifier
         StrongClassifier { wcs, weights }
     }
-
-    /// Classifies an image
-    pub fn classify(
-        &self,
-        ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, f64)>,
-    ) -> bool {
+} impl Classifier for StrongClassifier {
+    fn classify(&self, img: &impl ImageTrait) -> bool {
         self.wcs
             .iter()
             .zip(self.weights.iter())
-            .filter(|(wc, _)| wc.classify(ii, w))
+            .filter(|(wc, _)| wc.classify(img))
             .map(|(_, weight)| weight)
             .sum::<f64>()
             >= self.weights.iter().sum::<f64>() / 2.0

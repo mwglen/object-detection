@@ -4,7 +4,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use num::{ToPrimitive, Unsigned};
 use serde::{Deserialize, Serialize};
 
-use super::{IntegralImage, WindowSize};
+use super::{WindowSize, ImageTrait};
 
 /// The smallest unsigned integer primitive that can index into the Window
 pub type Window = Rectangle<WindowSize>;
@@ -30,15 +30,11 @@ pub struct Feature {
 }
 impl Feature {
     /// Evaluates a feature over a window of an integral image
-    pub fn evaluate(
-        &self,
-        ii: &IntegralImage,
-        w: Option<(Rectangle<u32>, f64)>,
-    ) -> i64 {
-        ii.rect_sum(&self.black.0, w)
-            + self.black.1.map_or(0, |r| ii.rect_sum(&r, w))
-            - ii.rect_sum(&self.white.0, w)
-            - self.white.1.map_or(0, |r| ii.rect_sum(&r, w))
+    pub fn evaluate(&self, img: &impl ImageTrait) -> i64 {
+        img.rect_sum(&self.black.0)
+            + self.black.1.map_or(0, |r| img.rect_sum(&r))
+            - img.rect_sum(&self.white.0)
+            - self.white.1.map_or(0, |r| img.rect_sum(&r))
     }
 }
 
