@@ -37,7 +37,9 @@ impl WeakClassifier {
             OrderedF64(wc.error(set))
         });
         wcs.reverse();
-        wcs.truncate(wcs.len() * ((PERCENTAGE_TO_FILTER / 100.0).ceil() as usize));
+        wcs.truncate(
+            (PERCENTAGE_TO_FILTER/100.0* (wcs.len() as f64)).ceil() as usize
+        );
         wcs
     }
 
@@ -60,9 +62,9 @@ impl WeakClassifier {
         // Set up variables used in the following loop
         let mut cf: usize = 0; // Total number of pos samples seen
         let mut cg: usize = 0; // Total number of neg samples seen
-        let mut fs: f64 = 0.0; // Sum of the weights of the pos samples seen
+        let mut fs: f64 = 0.0; // Sum of the weights of pos samples seen
         let mut bg: f64 = 0.0; // Sum of the weights of neg samples seen
-        let mut min_err: f64 = 1.0; // The minimum value of the error function
+        let mut min_err: f64 = 1.0; // The minimum value of the error
         let mut best_image = &set[0].image;
 
         for data in set.iter() {
@@ -95,7 +97,7 @@ impl WeakClassifier {
     pub fn calculate_thresholds(
         wcs: &mut [WeakClassifier],
         set: &[ImageData],
-    ) {
+    ){
         // Calculate the optimal thresholds for all weak classifiers
         let afs = set
             .iter()

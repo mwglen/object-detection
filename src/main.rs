@@ -143,7 +143,7 @@ fn detect(m: &clap::ArgMatches) {
     let img_height = img.height();
 
     // Convert image to integral image
-    let ii = IntegralImage::new(&img);
+    let ii = IntegralImage::from(&img);
 
     // Vector to hold detected objects
     let mut objects = Vec::<Rectangle<u32>>::new();
@@ -162,7 +162,7 @@ fn detect(m: &clap::ArgMatches) {
                     ii: &ii,
                     x_offset: x as usize,
                     y_offset: y as usize,
-                    f: f as u64,
+                    f: f as i64,
                 };
                 if cascade.classify(&img) {
                     objects.push(Rectangle::<u32>::new(

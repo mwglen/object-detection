@@ -8,9 +8,11 @@ use image::{
 use serde::{Deserialize, Serialize};
 use super::{new_bar, Rectangle, Window, WH_32, WL_32};
 
+pub type GreyscaleImage = ImageBuffer<Luma<u8>, Vec<u8>>;
+
 pub trait ImageTrait {
-    /// Gets the sum of pixels in a rectangular region of the original 
-    /// image using the images corresponding integral image
+    /// Gets the sum of pixels within in a rectangular 
+    /// region of an image
     fn rect_sum(&self, r: &Window) -> i64;
 } 
 
@@ -19,32 +21,7 @@ pub struct IntegralImage {
     pixels: Vec<u64>,
     width: usize,
     height: usize,
-}
-impl IntegralImage {
-    /// Creates an integral image from an image
-    pub fn new(img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> IntegralImage {
-        // Calculate each pixel of the integral image
-        let w = img.width() as usize;
-        let h = img.height() as usize;
-        let mut pixels = Vec::<u64>::with_capacity(w * h);
-        for y in 0..h {
-            for x in 0..w {
-                let mut pixel = u64::from(img.get_pixel(x as u32, y as u32)[0]);
-                if y != 0 {
-                    pixel += pixels[x + w * (y - 1)];
-                }
-                if x != 0 {
-                    pixel += pixels[(x - 1) + w * y];
-                }
-                if x != 0 && y != 0 {
-                    pixel -= pixels[(x - 1) + w * (y - 1)];
-                }
-                pixels.push(pixel);
-            }
-        }
-        IntegralImage { pixels, width: w, height: h }
-    }
-    
+} impl IntegralImage {
     pub fn from_slice_dir(slice_dir: &str) -> Vec<IntegralImage> {
         let mut sliced = Vec::<IntegralImage>::new();
         for img in fs::read_dir(slice_dir).unwrap() {
@@ -60,7 +37,7 @@ impl IntegralImage {
                 for y in 0..(h / WH_32) {
                     let img = crop_imm(&img, x * WL_32, y * WL_32, WL_32, WH_32)
                         .to_image();
-                    let image = IntegralImage::new(&img);
+                    let image = IntegralImage::from(&img);
                     sliced.push(image);
                 }
             }
@@ -68,6 +45,32 @@ impl IntegralImage {
         sliced
     }
 
+} impl From<&GreyscaleImage> for IntegralImage {
+    fn from(img: &GreyscaleImage) -> Self {
+        // Calculate each pixel of the integral image
+        let w = img.width() as usize;
+        let h = img.height() as usize;
+        let mut pixels = Vec::<u64>::with_capacity(w * h);
+        for y in 0..h {
+            for x in 0..w {
+                
+                let mut pixel = u64::from(
+                    img.get_pixel(x as u32, y as u32)[0]);
+
+                if y != 0 {
+                    pixel += pixels[x + w * (y - 1)];
+                }
+                if x != 0 {
+                    pixel += pixels[(x - 1) + w * y];
+                }
+                if x != 0 && y != 0 {
+                    pixel -= pixels[(x - 1) + w * (y - 1)];
+                }
+                pixels.push(pixel);
+            }
+        }
+        IntegralImage { pixels, width: w, height: h }
+    }
 } impl ImageTrait for IntegralImage {
     fn rect_sum(&self, r: &Window) -> i64 {
         let xtl = usize::from(r.top_left[0]);
@@ -86,25 +89,24 @@ pub struct WindowedIntegralImage<'a> {
     pub ii: &'a IntegralImage,
     pub x_offset: usize,
     pub y_offset: usize,
-    pub f: u64,
+    pub f: i64,
 } impl<'a> ImageTrait for WindowedIntegralImage<'_> {
     fn rect_sum(&self, r: &Window) -> i64 {
         let xtl = usize::from(r.top_left[0]) + self.x_offset;
         let ytl = usize::from(r.top_left[1]) + self.y_offset;
         let xbr = usize::from(r.bot_right[0]) + self.x_offset;
         let ybr = usize::from(r.bot_right[1]) + self.y_offset;
-        let f = self.f as i64;
 
         (self.ii.pixels[xbr + self.ii.width * ybr] as i64
             - self.ii.pixels[xbr + self.ii.width * ytl] as i64
             - self.ii.pixels[xtl + self.ii.width * ybr] as i64
             + self.ii.pixels[xtl + self.ii.width * ytl] as i64)
-            / (f * f)
+            / (self.f * self.f)
     }
 }
 
 
-/// A struct-of-arrays representing all of the training images
+/// A wrapper over an integral image that holds training data
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ImageData {
     pub image: IntegralImage,
@@ -148,14 +150,10 @@ pub struct ImageData {
                 .into_luma8();
 
             // Convert image to Integral Image
-            let image = IntegralImage::new(&img);
+            let image = IntegralImage::from(&img);
 
             // Push to vector
-            set.push(ImageData {
-                image,
-                weight,
-                is_object: true,
-            });
+            set.push(ImageData{image, weight, is_object: true});
             bar.inc(1);
         }
 
@@ -176,7 +174,7 @@ pub struct ImageData {
                 .into_luma8();
 
             // Convert image to Integral Image
-            let image = IntegralImage::new(&img);
+            let image = IntegralImage::from(&img);
 
             // Push to vector
             set.push(ImageData {
