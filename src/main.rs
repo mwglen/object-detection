@@ -5,10 +5,10 @@ mod strong_classifier;
 mod weak_classifier;
 
 use std::{fs, path::Path};
-
-use clap::{load_yaml, App, AppSettings};
-pub use constants::*;
 use image::io::Reader as ImageReader;
+use clap::{load_yaml, App, AppSettings};
+
+pub use constants::*;
 pub use images::{draw_rectangle, ImageData, IntegralImage};
 pub use primitives::*;
 pub use strong_classifier::StrongClassifier;
@@ -35,8 +35,10 @@ fn main() {
 fn process_images() {
     // Find and process images
     println!("Training Image:");
-    let set = ImageData::from_dirs(OBJECT_DIR, OTHER_DIR, SLICE_DIR, NUM_NEG);
-    println!("Processed {} images.", set.len());
+    let set = ImageData::from_dirs(
+        OBJECT_DIR, OTHER_DIR, SLICE_DIR, NUM_NEG,
+    );
+    println!("Processed {} images", set.len());
 
     // Save image data to cache
     let data = serde_json::to_string(&set).unwrap();
@@ -45,23 +47,29 @@ fn process_images() {
 
 /// Builds the cascade
 fn cascade() {
-    // Get training images from cache or process raw images if cache is empty
+    // Get training images from cache or process raw images if cache
+    // is empty
     let mut set: Vec<ImageData> = {
         if Path::new(CACHED_IMAGES).exists() {
-            let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
-            serde_json::from_str(&data).expect("Unable to read cached images")
+            let data =
+                std::fs::read_to_string(CACHED_IMAGES).unwrap();
+            serde_json::from_str(&data)
+                .expect("Unable to read cached images")
         } else {
             println!("Training image data not found in cache");
             return;
         }
     };
 
-    // Get all possible weak classifiers
-    let mut wcs = WeakClassifier::get_all();
     println!("{:-^30}", " Getting Weak Classifiers ");
-    println!("Created vector of {} possible weak classifiers", wcs.len());
-    // println!("Obatining the top 10% of weak classifiers");
-    // let mut wcs = WeakClassifier::filter(wcs, &mut set);
+    let wcs = WeakClassifier::get_all();
+    println!("Found {} possible weak classifiers", wcs.len());
+
+    // Filter out underperforming weak classifiers if specified
+    let mut wcs = if FILTER {
+        println!("Filtering out underperforming weak classifiers");
+        WeakClassifier::filter(wcs, &mut set)
+    } else {wcs};
 
     println!("{:-^30}", " Building Cascade ");
 
@@ -127,7 +135,8 @@ fn test() {
     let cascade: Vec<StrongClassifier> = {
         if Path::new(CASCADE).exists() {
             let data = std::fs::read_to_string(CASCADE).unwrap();
-            serde_json::from_str(&data).expect("Unable to read cached cascade")
+            serde_json::from_str(&data)
+                .expect("Unable to read cached cascade")
         } else {
             println!("Cascade not found in cache");
             return;
@@ -137,8 +146,10 @@ fn test() {
     // Get processed training images from cache
     let train_set: Vec<ImageData> = {
         if Path::new(CACHED_IMAGES).exists() {
-            let data = std::fs::read_to_string(CACHED_IMAGES).unwrap();
-            serde_json::from_str(&data).expect("Unable to read cached image data")
+            let data =
+                std::fs::read_to_string(CACHED_IMAGES).unwrap();
+            serde_json::from_str(&data)
+                .expect("Unable to read cached image data")
         } else {
             println!("Testing image data not found in cache");
             return;
@@ -180,7 +191,8 @@ fn test_images(set: &Vec<ImageData>, cascade: &Vec<StrongClassifier>) {
     println!("images_len: {}", set.len());
     println!(
         "Percent of correctly evaluated images: {:.2}%",
-        (correct_objects + correct_others) * 100.0 / (set.len() as f64)
+        (correct_objects + correct_others) * 100.0
+            / (set.len() as f64)
     );
     println!(
         "Percent of correctly evaluated images of the object: {:.2}%",
@@ -192,9 +204,10 @@ fn test_images(set: &Vec<ImageData>, cascade: &Vec<StrongClassifier>) {
     );
 }
 
-/// This detects objects by sending a "windowed" view into the image to
-/// be evaluated by the cascade. The window moves across the image and grows
-/// in size. This tests all rectangles in the images for the object
+/// This detects objects by sending a "windowed" view into the image
+/// to be evaluated by the cascade. The window moves across the image
+/// and grows in size. This tests all rectangles in the images for the
+/// object
 fn detect(m: &clap::ArgMatches) {
     // Get the cached cascade
     let cascade: Vec<StrongClassifier> = {
@@ -240,8 +253,16 @@ fn detect(m: &clap::ArgMatches) {
         let f = f64::from(curr_width) / f64::from(WL_32);
         for x in 0..(img_width - curr_width) {
             for y in 0..(img_height - curr_height) {
-                let r = Rectangle::<u32>::new(x, y, curr_width, curr_height);
-                if cascade.iter().all(|sc| sc.classify(&ii, Some((r, f)))) {
+                let r = Rectangle::<u32>::new(
+                    x,
+                    y,
+                    curr_width,
+                    curr_height,
+                );
+                if cascade
+                    .iter()
+                    .all(|sc| sc.classify(&ii, Some((r, f))))
+                {
                     objects.push(r);
                 }
             }
@@ -249,8 +270,10 @@ fn detect(m: &clap::ArgMatches) {
     }
     println!("Found {} instances of object", objects.len());
 
-    // Reopen the image and conver to rgb, draw rectangles, and then save image
-    let mut img = ImageReader::open(path).unwrap().decode().unwrap().to_rgb8();
+    // Reopen the image and conver to rgb, draw rectangles, and then
+    // save image
+    let mut img =
+        ImageReader::open(path).unwrap().decode().unwrap().to_rgb8();
     for o in objects.iter_mut() {
         draw_rectangle(&mut img, o);
     }
@@ -259,5 +282,6 @@ fn detect(m: &clap::ArgMatches) {
 
     // Output detected object
     let data = serde_json::to_string_pretty(&objects).unwrap();
-    fs::write("output/object.json", &data).expect("Unable to write to file");
+    fs::write("output/object.json", &data)
+        .expect("Unable to write to file");
 }

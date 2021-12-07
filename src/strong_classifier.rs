@@ -1,21 +1,26 @@
 use serde::{Deserialize, Serialize};
-
-use super::{ImageData, IntegralImage, Rectangle, WeakClassifier};
+use super::{
+    ImageData, 
+    IntegralImage, 
+    Rectangle, 
+    WeakClassifier
+};
 
 /// A strong classifier (made up of weighted weak classifiers)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StrongClassifier {
     wcs: Vec<WeakClassifier>,
     weights: Vec<f64>,
-}
-impl StrongClassifier {
+} impl StrongClassifier {
+
     /// Builds a strong classifier out of weak classifiers
+    /// from a list of potential weak classifiers
     pub fn new(
         wcs: &mut [WeakClassifier],
         set: &mut [ImageData],
-        size: usize,
+        num_wcs: usize,
     ) -> StrongClassifier {
-        let (wcs, weights) = (1..=size)
+        let (wcs, weights) = (1..=num_wcs)
             .map(|i| {
                 // Normalize weights
                 ImageData::normalize_weights(set);
@@ -26,8 +31,7 @@ impl StrongClassifier {
                 // Get the best weak classifier
                 println!(
                     "Choosing Weak Classifier {} of {}",
-                    i,
-                    size,
+                    i, num_wcs,
                 );
                 let wc = WeakClassifier::get_best(&wcs, set);
 
@@ -41,6 +45,7 @@ impl StrongClassifier {
         StrongClassifier { wcs, weights }
     }
 
+    /// Classifies an image
     pub fn classify(
         &self,
         ii: &IntegralImage,
