@@ -1,11 +1,8 @@
-use super::{
-    ImageData,
-    ImageTrait,
-};
+use super::{ImageData, IntegralImageTrait};
 
 pub trait Classifier {
     /// Classifies an image
-    fn classify(&self, img: &impl ImageTrait) -> bool;
+    fn classify(&self, img: &impl IntegralImageTrait) -> bool;
 
     /// Tests the classifier over a set of images and returns a tuple
     /// containing the false positive rate and the detection rate.

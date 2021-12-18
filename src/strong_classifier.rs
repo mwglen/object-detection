@@ -4,7 +4,7 @@ use super::{
     WeakClassifier,
     Classifier,
     MAX_FALSE_POS,
-    ImageTrait,
+    IntegralImageTrait,
 };
 
 /// A strong classifier (made up of weighted weak classifiers)
@@ -65,7 +65,7 @@ pub struct StrongClassifier {
         StrongClassifier { wcs, weights }
     }
 } impl Classifier for StrongClassifier {
-    fn classify(&self, img: &impl ImageTrait) -> bool {
+    fn classify(&self, img: &impl IntegralImageTrait) -> bool {
         self.wcs
             .iter()
             .zip(self.weights.iter())

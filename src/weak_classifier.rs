@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    new_bar, Feature, ImageData, ImageTrait, OrderedF64,
+    new_bar, Feature, ImageData, IntegralImageTrait, OrderedF64,
     Window, WH, WL, PERCENTAGE_TO_FILTER, Classifier,
 };
 
@@ -245,7 +245,7 @@ impl WeakClassifier {
     }
 
 } impl Classifier for WeakClassifier {
-    fn classify(&self, img: &impl ImageTrait) -> bool {
+    fn classify(&self, img: &impl IntegralImageTrait) -> bool {
         self.pos_polarity == (self.feature.evaluate(img) < self.threshold)
     }
 }

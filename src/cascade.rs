@@ -1,7 +1,7 @@
 use super::{
     Classifier,
     StrongClassifier,
-    ImageTrait,
+    IntegralImageTrait,
     ImageData,
     WeakClassifier,
     TARGET_FALSE_POS,
@@ -67,7 +67,7 @@ pub struct Cascade {
         Cascade{scs}
     }
 } impl Classifier for Cascade {
-    fn classify(&self, img: &impl ImageTrait) -> bool {
+    fn classify(&self, img: &impl IntegralImageTrait) -> bool {
         self.scs.iter().all(|sc| sc.classify(img))
     }
 }

@@ -5,14 +5,15 @@ mod strong_classifier;
 mod weak_classifier;
 mod classifier;
 mod cascade;
+mod integral_image;
 
 use std::{fs, path::Path};
-use image::io::Reader as ImageReader;
 use clap::{load_yaml, App, AppSettings};
 
-pub use images::{
-    draw_rectangle, ImageData, IntegralImage, 
-    ImageTrait, WindowedIntegralImage
+pub use integral_image::{
+    ImageData, IntegralImage, 
+    IntegralImageTrait, 
+    WindowedIntegralImage,
 };
 pub use constants::*;
 pub use primitives::*;
@@ -20,6 +21,12 @@ pub use strong_classifier::StrongClassifier;
 pub use weak_classifier::WeakClassifier;
 pub use classifier::Classifier;
 pub use cascade::Cascade;
+pub use images::{
+    ColorImage, 
+    GreyscaleImage, 
+    DynamicImage,
+    draw_rectangle,
+};
 
 fn main() {
     // Parse the cli arguments using clap
@@ -134,11 +141,8 @@ fn detect(m: &clap::ArgMatches) {
         + Path::new(path).file_name().unwrap().to_str().unwrap();
 
     // Open the image
-    let img = ImageReader::open(path)
-        .unwrap()
-        .decode()
-        .unwrap()
-        .to_luma8();
+    let img = DynamicImage::from(path);
+    let img = GreyscaleImage::from(img);
     let img_width = img.width();
     let img_height = img.height();
 
@@ -166,7 +170,7 @@ fn detect(m: &clap::ArgMatches) {
                 };
                 if cascade.classify(&img) {
                     objects.push(Rectangle::<u32>::new(
-                            x, y, curr_width, curr_height
+                        x, y, curr_width, curr_height
                     ));
                 }
             }
@@ -176,11 +180,8 @@ fn detect(m: &clap::ArgMatches) {
 
     // Reopen the image and conver to rgb, draw rectangles, and then
     // save image
-    let mut img =
-        ImageReader::open(path).unwrap().decode().unwrap().to_rgb8();
-    for o in objects.iter_mut() {
-        draw_rectangle(&mut img, o);
-    }
+    let mut img = ColorImage::from(DynamicImage::from(path));
+    for o in objects.iter_mut() { draw_rectangle(&mut img, o); }
     // draw_rectangle(&mut img, &objects[0]);
     img.save(output_img).unwrap();
 
